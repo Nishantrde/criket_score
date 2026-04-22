@@ -262,6 +262,7 @@
           <button class="btnPrimary" onclick="hit(6)">SIX</button>
           <button class="btnWarn" onclick="wicket()">WICKET</button>
           <button class="btnWarn" onclick="ball_count()">+1 BALL</button>
+          <button class="btnWarn" onclick="resetScore()">RESET</button>
         </div>
 
         <div class="editor">
@@ -343,11 +344,15 @@
         wickets: Number(data?.wickets ?? 0) || 0,
         over: normalizeOver(data?.over)
       };
+      renderScore();
+    });
+
+    function renderScore() {
       document.getElementById("score").innerText =
         score.runs + "/" + score.wickets + " (" + formatOver(score.over) + ")";
       document.getElementById("overPill").innerText = "Over: " + formatOver(score.over);
       syncInputsFromScore();
-    });
+    }
 
     function syncInputsFromScore() {
       const runsInput = document.getElementById("runsInput");
@@ -394,6 +399,16 @@
 
     function wicket() {
       score.wickets += 1;
+      socket.emit("updateScore", score);
+    }
+
+    function resetScore() {
+      score = {
+        runs: 0,
+        wickets: 0,
+        over: 0.0
+      };
+      renderScore();
       socket.emit("updateScore", score);
     }
   </script>

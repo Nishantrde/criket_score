@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mojo Pravah • Live Score</title>
+  <style>
+    :root {
+      --bg: #f2f2f2;
+      --surface: #ffffff;
+      --text: #1f1f1f;
+      --muted: #5a5a5a;
+      --border: #d9d9d9;
+      --accent: #f2c200;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      margin-bottom: 10px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      border: 1px solid rgba(0,0,0,0.12);
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .sub {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .score {
+      margin: 8px 0 10px;
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 480px) {
+      .score { font-size: 44px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
+    <h1>Live Cricket Score</h1>
+    <p class="sub">Audience view (auto-updates)</p>
+
+    <section class="card">
+      <div class="label">Score</div>
+      <div class="score" id="score">Loading…</div>
+      <div class="row">
+        <span class="pill" id="overPill">Over: 0.0</span>
+        <span class="pill">Game: Cricket</span>
+      </div>
+    </section>
+  </div>
+
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    function overToBalls(value) {
+      const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
+      const safe = Number.isFinite(num) && num >= 0 ? num : 0;
+      const overs = Math.floor(safe);
+      const balls = Math.round((safe - overs) * 10);
+      return overs * 6 + Math.max(0, balls);
+    }
+
+    function ballsToOverNumber(totalBalls) {
+      const safe = Number.isFinite(totalBalls) && totalBalls >= 0 ? Math.floor(totalBalls) : 0;
+      const overs = Math.floor(safe / 6);
+      const balls = safe % 6;
+      return overs + balls / 10;
+    }
+
+    function normalizeOver(value) {
+      return ballsToOverNumber(overToBalls(value));
+    }
+
+    function formatOver(value) {
+      return normalizeOver(value).toFixed(1);
+    }
+
+    let score = {
+      runs: 0,
+      wickets: 0,
+      over: 0
+    };
+
+    socket.on("scoreUpdate", (data) => {
+      score = {
+        runs: Number(data?.runs ?? 0) || 0,
+        wickets: Number(data?.wickets ?? 0) || 0,
+        over: normalizeOver(data?.over)
+      };
+      document.getElementById("score").innerText =
+        score.runs + "/" + score.wickets + " (" + formatOver(score.over) + ")";
+      document.getElementById("overPill").innerText = "Over: " + formatOver(score.over);
+    });
+
+  </script>
+</body>
+</html>

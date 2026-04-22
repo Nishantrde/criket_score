@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mojo Pravah • Cricket Scoring</title>
+  <style>
+    :root {
+      --bg: #f2f2f2;
+      --surface: #ffffff;
+      --text: #1f1f1f;
+      --muted: #5a5a5a;
+      --border: #d9d9d9;
+      --accent: #f2c200;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 6px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      border: 1px solid rgba(0,0,0,0.12);
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 860px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .scoreRow {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .score {
+      margin: 6px 0 0;
+      font-size: 42px;
+      font-weight: 750;
+      letter-spacing: -0.5px;
+    }
+
+    .meta {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .editor {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 650;
+    }
+
+    input:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 480px) {
+      .controls { grid-template-columns: 1fr; }
+      .score { font-size: 36px; }
+      .editor { grid-template-columns: 1fr; }
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 12px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+    .btnPrimary {
+      background: var(--accent);
+      border-color: rgba(0,0,0,0.12);
+    }
+
+    .btnWarn {
+      background: var(--surface);
+      border-color: rgba(0,0,0,0.25);
+    }
+
+    .sideTitle {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .kv {
+      display: grid;
+      gap: 10px;
+    }
+
+    .kvItem {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg);
+    }
+
+    .kvItem b { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
+        <h1>Cricket Scoring Console</h1>
+        <p class="sub">Use the buttons to update the live score. Audience view: <b>/client</b></p>
+      </div>
+      <div class="pill">Game: Cricket</div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <div class="scoreRow">
+          <div>
+            <div class="label">Live Score</div>
+            <div class="score" id="score">Loading…</div>
+          </div>
+          <div class="meta">
+            <span class="pill" id="overPill">Over: 0.0</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btnPrimary" onclick="hit(1)">+1 Run</button>
+          <button class="btnPrimary" onclick="hit(2)">+2 Run</button>
+          <button class="btnPrimary" onclick="hit(3)">+3 Run</button>
+          <button class="btnPrimary" onclick="hit(4)">FOUR</button>
+          <button class="btnPrimary" onclick="hit(5)">+5 Run</button>
+          <button class="btnPrimary" onclick="hit(6)">SIX</button>
+          <button class="btnWarn" onclick="wicket()">WICKET</button>
+          <button class="btnWarn" onclick="ball_count()">+1 BALL</button>
+        </div>
+
+        <div class="editor">
+          <div class="field">
+            <div class="label">Runs</div>
+            <input id="runsInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <div class="label">Wickets</div>
+            <input id="wicketsInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <div class="label">Over</div>
+            <input id="overInput" type="text" inputmode="decimal" value="0.0" placeholder="e.g. 12.3" />
+          </div>
+          <button class="btnPrimary" onclick="pushScore()">Update Score</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    function overToBalls(value) {
+      const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
+      const safe = Number.isFinite(num) && num >= 0 ? num : 0;
+      const overs = Math.floor(safe);
+      const balls = Math.round((safe - overs) * 10);
+      return overs * 6 + Math.max(0, balls);
+    }
+
+    function ballsToOverNumber(totalBalls) {
+      const safe = Number.isFinite(totalBalls) && totalBalls >= 0 ? Math.floor(totalBalls) : 0;
+      const overs = Math.floor(safe / 6);
+      const balls = safe % 6;
+      return overs + balls / 10;
+    }
+
+    function normalizeOver(value) {
+      return ballsToOverNumber(overToBalls(value));
+    }
+
+    function formatOver(value) {
+      return normalizeOver(value).toFixed(1);
+    }
+
+    function parseOverInput(str) {
+      const raw = String(str ?? "").trim();
+      if (!raw) return 0;
+
+      if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+
+      const m = raw.match(/^(\d+)\.(\d+)$/);
+      if (!m) return null;
+      const overs = Number.parseInt(m[1], 10);
+      const ballsStr = m[2];
+
+      // allow 1.0 or 1.00 etc
+      if (/^0+$/.test(ballsStr)) return overs;
+      if (ballsStr.length !== 1) return null;
+
+      const balls = Number.parseInt(ballsStr, 10);
+      if (!Number.isFinite(balls) || balls < 0 || balls > 5) return null;
+      return overs + balls / 10;
+    }
+
+    let score = {
+      runs: 0,
+      wickets: 0,
+      over: 0.0
+    };
+
+    socket.on("scoreUpdate", (data) => {
+      score = {
+        runs: Number(data?.runs ?? 0) || 0,
+        wickets: Number(data?.wickets ?? 0) || 0,
+        over: normalizeOver(data?.over)
+      };
+      document.getElementById("score").innerText =
+        score.runs + "/" + score.wickets + " (" + formatOver(score.over) + ")";
+      document.getElementById("overPill").innerText = "Over: " + formatOver(score.over);
+      syncInputsFromScore();
+    });
+
+    function syncInputsFromScore() {
+      const runsInput = document.getElementById("runsInput");
+      const wicketsInput = document.getElementById("wicketsInput");
+      const overInput = document.getElementById("overInput");
+
+      if (document.activeElement !== runsInput) runsInput.value = String(score.runs ?? 0);
+      if (document.activeElement !== wicketsInput) wicketsInput.value = String(score.wickets ?? 0);
+      if (document.activeElement !== overInput) overInput.value = formatOver(score.over ?? 0);
+    }
+
+    function hit(run) {
+      score.runs += run;
+      socket.emit("updateScore", score);
+    }
+
+    function ball_count() {
+      const nextBalls = overToBalls(score.over) + 1;
+      score.over = ballsToOverNumber(nextBalls);
+      socket.emit("updateScore", score);
+    }
+
+    function pushScore() {
+      const runsVal = Number.parseInt(document.getElementById("runsInput").value, 10);
+      const wicketsVal = Number.parseInt(document.getElementById("wicketsInput").value, 10);
+      const overVal = document.getElementById("overInput").value.trim();
+
+      if (!Number.isFinite(runsVal) || runsVal < 0) return;
+      if (!Number.isFinite(wicketsVal) || wicketsVal < 0) return;
+      const overNum = parseOverInput(overVal);
+      if (overNum === null) {
+        alert("Over must be like 12.3 (balls 0-5)");
+        return;
+      }
+
+      score = {
+        runs: runsVal,
+        wickets: wicketsVal,
+        over: normalizeOver(overNum)
+      };
+
+      socket.emit("updateScore", score);
+    }
+
+    function wicket() {
+      score.wickets += 1;
+      socket.emit("updateScore", score);
+    }
+  </script>
+</body>
+</html>

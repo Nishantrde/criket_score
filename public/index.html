@@ -840,15 +840,45 @@
 
       try {
         setStatus("Recording match…", "");
+
+        // Prefer socket event (more reliable behind some production proxies)
+        if (socket && socket.connected) {
+          const result = await new Promise((resolve, reject) => {
+            socket
+              .timeout(8000)
+              .emit("recordMatch", { match, winner }, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+              });
+          });
+
+          if (!result || !result.ok) {
+            setStatus(result?.error || "Failed to record match.", "err");
+            return;
+          }
+
+          setStatus(`Match recorded (id: ${result.id}).`, "ok");
+          loadHistory();
+          return;
+        }
+
+        // Fallback to HTTP
         const res = await fetch("/api/matches", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ match, winner })
         });
 
-        const json = await res.json().catch(() => ({}));
+        const text = await res.text();
+        let json = {};
+        try {
+          json = JSON.parse(text || "{}");
+        } catch {
+          json = {};
+        }
+
         if (!res.ok || !json.ok) {
-          setStatus(json.error || "Failed to record match.", "err");
+          setStatus(json.error || text || "Failed to record match.", "err");
           return;
         }
 

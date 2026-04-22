@@ -360,6 +360,58 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("recordMatch", async (payload, ack) => {
+    try {
+      if (!isAdminSocket(socket)) {
+        if (typeof ack === "function") ack({ ok: false, error: "Admin authentication required." });
+        return;
+      }
+
+      const winner = payload?.winner;
+      if (!validateWinner(winner)) {
+        if (typeof ack === "function") ack({ ok: false, error: "Winner is required (teamA/teamB)." });
+        return;
+      }
+
+      const incomingMatch = normalizeMatchState(payload?.match ?? payload);
+      if (!incomingMatch.teamA.name || !incomingMatch.teamB.name) {
+        if (typeof ack === "function") ack({ ok: false, error: "Team names are required." });
+        return;
+      }
+
+      if (
+        !Number.isFinite(incomingMatch.teamA.runs) ||
+        !Number.isFinite(incomingMatch.teamB.runs) ||
+        !Number.isFinite(incomingMatch.teamA.wickets) ||
+        !Number.isFinite(incomingMatch.teamB.wickets) ||
+        !Number.isFinite(incomingMatch.teamA.over) ||
+        !Number.isFinite(incomingMatch.teamB.over)
+      ) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match data is incomplete." });
+        return;
+      }
+
+      if (
+        incomingMatch.teamA.runs < 0 ||
+        incomingMatch.teamB.runs < 0 ||
+        incomingMatch.teamA.wickets < 0 ||
+        incomingMatch.teamB.wickets < 0 ||
+        incomingMatch.teamA.over < 0 ||
+        incomingMatch.teamB.over < 0
+      ) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match data is invalid." });
+        return;
+      }
+
+      const saved = await insertMatch({ match: incomingMatch, winner });
+      emitMatchesUpdate();
+      if (typeof ack === "function") ack({ ok: true, id: saved.id, createdAt: saved.createdAt });
+    } catch (err) {
+      console.error("Socket recordMatch failed", err);
+      if (typeof ack === "function") ack({ ok: false, error: "Failed to record match." });
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });

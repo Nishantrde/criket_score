@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mojo Pravah • Cricket Scoring</title>
+  <title>Mojo Pravah • Cricket Scoring (Admin)</title>
   <style>
     :root {
       --bg: #f2f2f2;
@@ -82,6 +82,82 @@
       grid-template-columns: 1.2fr 0.8fr;
       gap: 16px;
     }
+
+    .teamGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 860px) {
+      .teamGrid { grid-template-columns: 1fr; }
+    }
+
+    .teamCard {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .teamCard.active {
+      border-color: rgba(0,0,0,0.25);
+      box-shadow: 0 0 0 3px rgba(242, 194, 0, 0.35);
+    }
+
+    .teamHead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .teamName {
+      font-weight: 850;
+      letter-spacing: -0.2px;
+    }
+
+    .teamScore {
+      font-size: 26px;
+      font-weight: 850;
+      letter-spacing: -0.4px;
+    }
+
+    .seg {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .seg button {
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      padding: 8px 10px;
+      border-radius: 0;
+      font-weight: 750;
+    }
+
+    .seg button:last-child { border-right: 0; }
+    .seg .on { background: var(--accent); }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 13px;
+      min-height: 20px;
+    }
+
+    .status.ok { border-color: rgba(0,0,0,0.18); }
+    .status.err { border-color: rgba(0,0,0,0.35); }
 
     @media (max-width: 860px) {
       .grid {
@@ -228,6 +304,44 @@
     }
 
     .kvItem b { font-weight: 700; }
+
+    .hist {
+      display: grid;
+      gap: 10px;
+    }
+
+    .histItem {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .histTop {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .histLine {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 750;
+    }
+
+    .histLine span {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .smallBtn {
+      padding: 10px 12px;
+    }
   </style>
 </head>
 <body>
@@ -235,21 +349,53 @@
     <header>
       <div class="brand">
         <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
-        <h1>Cricket Scoring Console</h1>
-        <p class="sub">Use the buttons to update the live score. Audience view: <b>/client</b></p>
+        <h1>Cricket Scoring Admin</h1>
+        <p class="sub">Admin: <b>/admin</b> • Audience: <b>/client</b></p>
       </div>
-      <div class="pill">Game: Cricket</div>
+      <div class="pill">Admin</div>
     </header>
 
     <div class="grid">
       <section class="card">
+        <div class="editor" style="margin-top:0; padding-top:0; border-top:0; grid-template-columns: 1fr 1fr auto;">
+          <div class="field">
+            <div class="label">Team A Name</div>
+            <input id="teamANameInput" type="text" placeholder="Team A" />
+          </div>
+          <div class="field">
+            <div class="label">Team B Name</div>
+            <input id="teamBNameInput" type="text" placeholder="Team B" />
+          </div>
+          <button class="btnPrimary smallBtn" onclick="saveTeamNamesNow()">Save Names</button>
+        </div>
+
+        <div class="teamGrid">
+          <div class="teamCard" id="teamABox">
+            <div class="teamHead">
+              <div class="teamName" id="teamAName">Team A</div>
+              <span class="pill" id="teamAActive" style="display:none;">Batting</span>
+            </div>
+            <div class="teamScore" id="teamAScore">0/0 (0.0)</div>
+          </div>
+          <div class="teamCard" id="teamBBox">
+            <div class="teamHead">
+              <div class="teamName" id="teamBName">Team B</div>
+              <span class="pill" id="teamBActive" style="display:none;">Batting</span>
+            </div>
+            <div class="teamScore" id="teamBScore">0/0 (0.0)</div>
+          </div>
+        </div>
+
         <div class="scoreRow">
           <div>
-            <div class="label">Live Score</div>
+            <div class="label">Editing</div>
             <div class="score" id="score">Loading…</div>
           </div>
           <div class="meta">
-            <span class="pill" id="overPill">Over: 0.0</span>
+            <div class="seg" role="tablist" aria-label="Active team">
+              <button id="teamABtn" class="on" onclick="setActiveTeam('teamA')">Team A</button>
+              <button id="teamBBtn" onclick="setActiveTeam('teamB')">Team B</button>
+            </div>
           </div>
         </div>
 
@@ -262,7 +408,7 @@
           <button class="btnPrimary" onclick="hit(6)">SIX</button>
           <button class="btnWarn" onclick="wicket()">WICKET</button>
           <button class="btnWarn" onclick="ball_count()">+1 BALL</button>
-          <button class="btnWarn" onclick="resetScore()">RESET</button>
+          <button class="btnWarn" onclick="resetActiveTeam()">RESET TEAM</button>
         </div>
 
         <div class="editor">
@@ -280,6 +426,36 @@
           </div>
           <button class="btnPrimary" onclick="pushScore()">Update Score</button>
         </div>
+
+        <div class="editor">
+          <div class="field">
+            <div class="label">Winner (required)</div>
+            <select id="winnerSelect" style="width:100%; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:12px; padding:10px 12px; font-weight:650;">
+              <option value="">Select winner</option>
+              <option value="teamA" id="winnerA">Team A</option>
+              <option value="teamB" id="winnerB">Team B</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column: span 3;">
+            <div class="label">Record Match</div>
+            <button class="btnPrimary" onclick="recordMatch()">Record Match</button>
+          </div>
+        </div>
+
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="card">
+        <div class="scoreRow" style="margin-bottom: 12px;">
+          <div>
+            <div class="label">History</div>
+            <div class="score" style="font-size: 22px;">Recorded Matches</div>
+          </div>
+          <div class="meta">
+            <button class="smallBtn" onclick="loadHistory()">Refresh</button>
+          </div>
+        </div>
+        <div id="history" class="hist"></div>
       </section>
 
     </div>
@@ -340,47 +516,228 @@
       return overs + balls / 10;
     }
 
-    let score = {
-      runs: 0,
-      wickets: 0,
-      over: 0.0
+    let match = {
+      activeTeam: "teamA",
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
     };
 
-    socket.on("scoreUpdate", (data) => {
-      score = {
-        runs: Number(data?.runs ?? 0) || 0,
-        wickets: Number(data?.wickets ?? 0) || 0,
-        over: normalizeOver(data?.over)
-      };
-      renderScore();
-    });
+    let history = [];
 
-    function renderScore() {
-      document.getElementById("score").innerText =
-        score.runs + "/" + score.wickets + " (" + formatOver(score.over) + ")";
-      document.getElementById("overPill").innerText = "Over: " + formatOver(score.over);
-      syncInputsFromScore();
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
     }
 
-    function syncInputsFromScore() {
+    function normalizeTeam(team, fallbackName) {
+      const name = String(team?.name ?? fallbackName);
+      const runs = Number(team?.runs ?? 0);
+      const wickets = Number(team?.wickets ?? 0);
+      const over = normalizeOver(team?.over);
+      return {
+        name: name || fallbackName,
+        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+        over
+      };
+    }
+
+    function normalizeMatch(state) {
+      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
+      return {
+        activeTeam,
+        teamA: normalizeTeam(state?.teamA, "Team A"),
+        teamB: normalizeTeam(state?.teamB, "Team B")
+      };
+    }
+
+    function setStatus(message, kind) {
+      const el = document.getElementById("status");
+      el.className = "status" + (kind ? " " + kind : "");
+      el.innerText = message || "";
+    }
+
+    function getActiveTeam() {
+      return match.activeTeam === "teamB" ? match.teamB : match.teamA;
+    }
+
+    function setActiveTeam(teamKey) {
+      match.activeTeam = teamKey === "teamB" ? "teamB" : "teamA";
+      pushMatch();
+      render();
+    }
+
+    function pushMatch() {
+      socket.emit("updateMatch", match);
+    }
+
+    socket.on("matchUpdate", (data) => {
+      match = normalizeMatch(data);
+      render();
+    });
+
+    socket.on("matchesUpdate", (rows) => {
+      if (Array.isArray(rows)) {
+        history = rows;
+        renderHistory();
+      }
+    });
+
+    // fallback if an older server emits scoreUpdate only
+    socket.on("scoreUpdate", (data) => {
+      const t = normalizeTeam(data, match.activeTeam === "teamB" ? "Team B" : "Team A");
+      if (match.activeTeam === "teamB") match.teamB = t;
+      else match.teamA = t;
+      render();
+    });
+
+    function render() {
+      const a = match.teamA;
+      const b = match.teamB;
+
+      document.getElementById("teamAName").innerText = a.name;
+      document.getElementById("teamBName").innerText = b.name;
+      document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
+      document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
+
+      // keep inputs + labels in sync
+      const aInput = document.getElementById("teamANameInput");
+      const bInput = document.getElementById("teamBNameInput");
+      if (document.activeElement !== aInput) aInput.value = a.name;
+      if (document.activeElement !== bInput) bInput.value = b.name;
+
+      document.getElementById("teamABtn").innerText = a.name;
+      document.getElementById("teamBBtn").innerText = b.name;
+      document.getElementById("winnerA").innerText = a.name;
+      document.getElementById("winnerB").innerText = b.name;
+
+      const aActive = match.activeTeam === "teamA";
+      document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
+      document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
+      document.getElementById("teamAActive").style.display = aActive ? "inline-flex" : "none";
+      document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
+
+      document.getElementById("teamABtn").className = aActive ? "on" : "";
+      document.getElementById("teamBBtn").className = aActive ? "" : "on";
+
+      const t = getActiveTeam();
+      document.getElementById("score").innerText = `${t.runs}/${t.wickets} (${formatOver(t.over)})`;
+      syncInputsFromTeam();
+    }
+
+    let saveNamesTimer = null;
+
+    function onTeamNameInput() {
+      match.teamA.name = String(document.getElementById("teamANameInput").value ?? "").trim();
+      match.teamB.name = String(document.getElementById("teamBNameInput").value ?? "").trim();
+      pushMatch();
+      render();
+      if (saveNamesTimer) window.clearTimeout(saveNamesTimer);
+      saveNamesTimer = window.setTimeout(() => {
+        saveTeamNamesNow();
+      }, 600);
+    }
+
+    async function saveTeamNamesNow() {
+      const teamAName = String(document.getElementById("teamANameInput").value ?? "").trim();
+      const teamBName = String(document.getElementById("teamBNameInput").value ?? "").trim();
+      if (!teamAName || !teamBName) {
+        setStatus("Both team names are required.", "err");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/teams", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamAName, teamBName })
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          setStatus(json.error || "Failed to save team names.", "err");
+          return;
+        }
+        setStatus("Team names saved.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to save team names.", "err");
+      }
+    }
+
+    function renderHistory() {
+      const box = document.getElementById("history");
+      if (!Array.isArray(history) || history.length === 0) {
+        box.innerHTML = `<div class="pill" style="width: fit-content;">No matches recorded yet.</div>`;
+        return;
+      }
+
+      box.innerHTML = history
+        .map((m) => {
+          const created = m?.created_at ? new Date(m.created_at).toLocaleString() : "";
+          const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
+          return `
+            <div class="histItem">
+              <div class="histTop">
+                <div>${escapeHtml(created)}</div>
+                <div>Winner: <b>${escapeHtml(winnerName || "")}</b></div>
+              </div>
+              <div class="histLine">
+                <div>${escapeHtml(m?.teamA_name || "Team A")} <span>${m?.teamA_runs ?? 0}/${m?.teamA_wickets ?? 0} (${formatOver(m?.teamA_overs ?? 0)})</span></div>
+              </div>
+              <div class="histLine">
+                <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/matches?limit=50");
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          setStatus(json.error || "Failed to load match history.", "err");
+          return;
+        }
+        history = Array.isArray(json.matches) ? json.matches : [];
+        renderHistory();
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to load match history.", "err");
+      }
+    }
+
+    function syncInputsFromTeam() {
       const runsInput = document.getElementById("runsInput");
       const wicketsInput = document.getElementById("wicketsInput");
       const overInput = document.getElementById("overInput");
 
-      if (document.activeElement !== runsInput) runsInput.value = String(score.runs ?? 0);
-      if (document.activeElement !== wicketsInput) wicketsInput.value = String(score.wickets ?? 0);
-      if (document.activeElement !== overInput) overInput.value = formatOver(score.over ?? 0);
+      const t = getActiveTeam();
+      if (document.activeElement !== runsInput) runsInput.value = String(t.runs ?? 0);
+      if (document.activeElement !== wicketsInput) wicketsInput.value = String(t.wickets ?? 0);
+      if (document.activeElement !== overInput) overInput.value = formatOver(t.over ?? 0);
     }
 
     function hit(run) {
-      score.runs += run;
-      socket.emit("updateScore", score);
+      const t = getActiveTeam();
+      t.runs += run;
+      pushMatch();
+      render();
     }
 
     function ball_count() {
-      const nextBalls = overToBalls(score.over) + 1;
-      score.over = ballsToOverNumber(nextBalls);
-      socket.emit("updateScore", score);
+      const t = getActiveTeam();
+      const nextBalls = overToBalls(t.over) + 1;
+      t.over = ballsToOverNumber(nextBalls);
+      pushMatch();
+      render();
     }
 
     function pushScore() {
@@ -396,29 +753,75 @@
         return;
       }
 
-      score = {
-        runs: runsVal,
-        wickets: wicketsVal,
-        over: normalizeOver(overNum)
-      };
-
-      socket.emit("updateScore", score);
+      const t = getActiveTeam();
+      t.runs = runsVal;
+      t.wickets = wicketsVal;
+      t.over = normalizeOver(overNum);
+      pushMatch();
+      render();
     }
 
     function wicket() {
-      score.wickets += 1;
-      socket.emit("updateScore", score);
+      const t = getActiveTeam();
+      t.wickets += 1;
+      pushMatch();
+      render();
     }
 
-    function resetScore() {
-      score = {
-        runs: 0,
-        wickets: 0,
-        over: 0.0
-      };
-      renderScore();
-      socket.emit("updateScore", score);
+    function resetActiveTeam() {
+      const t = getActiveTeam();
+      t.runs = 0;
+      t.wickets = 0;
+      t.over = 0.0;
+      setStatus("Reset active team.", "ok");
+      pushMatch();
+      render();
     }
+
+    async function recordMatch() {
+      const winner = document.getElementById("winnerSelect").value;
+      if (winner !== "teamA" && winner !== "teamB") {
+        setStatus("Winner is required before recording.", "err");
+        return;
+      }
+
+      if (!match.teamA.name || !match.teamB.name) {
+        setStatus("Both team names are required before recording.", "err");
+        return;
+      }
+
+      const confirmed = window.confirm("Record this match to the database?");
+      if (!confirmed) {
+        setStatus("Recording cancelled.", "");
+        return;
+      }
+
+      try {
+        setStatus("Recording match…", "");
+        const res = await fetch("/api/matches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match, winner })
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          setStatus(json.error || "Failed to record match.", "err");
+          return;
+        }
+
+        setStatus(`Match recorded (id: ${json.id}).`, "ok");
+        loadHistory();
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to record match.", "err");
+      }
+    }
+
+    document.getElementById("teamANameInput").addEventListener("input", onTeamNameInput);
+    document.getElementById("teamBNameInput").addEventListener("input", onTeamNameInput);
+
+    loadHistory();
   </script>
 </body>
 </html>

@@ -72,6 +72,41 @@
       padding: 18px;
     }
 
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .teamCard {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .teamCard.active {
+      border-color: rgba(0,0,0,0.25);
+      box-shadow: 0 0 0 3px rgba(242, 194, 0, 0.35);
+    }
+
+    .teamHead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .teamName {
+      font-weight: 850;
+      letter-spacing: -0.3px;
+    }
+
     .label {
       color: var(--muted);
       font-size: 12px;
@@ -110,6 +145,51 @@
     @media (max-width: 480px) {
       .score { font-size: 44px; }
     }
+
+    .hist {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .histItem {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .histTop {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .histLine {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 750;
+    }
+
+    .histLine span {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .titleRow {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
   </style>
 </head>
 <body>
@@ -118,14 +198,47 @@
     <h1>Live Cricket Score</h1>
     <p class="sub">Audience view (auto-updates)</p>
 
-    <section class="card">
-      <div class="label">Score</div>
-      <div class="score" id="score">Loading…</div>
-      <div class="row">
-        <span class="pill" id="overPill">Over: 0.0</span>
-        <span class="pill">Game: Cricket</span>
+    <div class="grid">
+      <section class="teamCard" id="teamABox">
+        <div class="teamHead">
+          <div>
+            <div class="label">Team</div>
+            <div class="teamName" id="teamAName">Team A</div>
+          </div>
+          <span class="pill" id="teamAActive" style="display:none;">Batting</span>
+        </div>
+        <div class="label">Score</div>
+        <div class="score" id="teamAScore">0/0 (0.0)</div>
+      </section>
+
+      <section class="teamCard" id="teamBBox">
+        <div class="teamHead">
+          <div>
+            <div class="label">Team</div>
+            <div class="teamName" id="teamBName">Team B</div>
+          </div>
+          <span class="pill" id="teamBActive" style="display:none;">Batting</span>
+        </div>
+        <div class="label">Score</div>
+        <div class="score" id="teamBScore">0/0 (0.0)</div>
+      </section>
+    </div>
+
+    <div class="row" style="margin-top: 12px;">
+      <span class="pill">Game: Cricket</span>
+      <span class="pill">Event: Mojo Pravah (Mojo Hostel)</span>
+    </div>
+
+    <div class="card" style="margin-top: 14px;">
+      <div class="titleRow">
+        <div>
+          <div class="label">History</div>
+          <div style="font-weight: 850; font-size: 18px;">Recorded Matches</div>
+        </div>
+        <button onclick="loadHistory()" style="border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-weight: 650; cursor: pointer;">Refresh</button>
       </div>
-    </section>
+      <div id="history" class="hist"></div>
+    </div>
   </div>
 
   
@@ -164,22 +277,126 @@
       return normalizeOver(value).toFixed(1);
     }
 
-    let score = {
-      runs: 0,
-      wickets: 0,
-      over: 0
+    let history = [];
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderHistory() {
+      const box = document.getElementById("history");
+      if (!Array.isArray(history) || history.length === 0) {
+        box.innerHTML = `<div class="pill" style="width: fit-content;">No matches recorded yet.</div>`;
+        return;
+      }
+
+      box.innerHTML = history
+        .map((m) => {
+          const created = m?.created_at ? new Date(m.created_at).toLocaleString() : "";
+          const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
+          return `
+            <div class="histItem">
+              <div class="histTop">
+                <div>${escapeHtml(created)}</div>
+                <div>Winner: <b>${escapeHtml(winnerName || "")}</b></div>
+              </div>
+              <div class="histLine">
+                <div>${escapeHtml(m?.teamA_name || "Team A")} <span>${m?.teamA_runs ?? 0}/${m?.teamA_wickets ?? 0} (${formatOver(m?.teamA_overs ?? 0)})</span></div>
+              </div>
+              <div class="histLine">
+                <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/matches?limit=50");
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          console.error(json.error || "Failed to load match history");
+          return;
+        }
+        history = Array.isArray(json.matches) ? json.matches : [];
+        renderHistory();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    let match = {
+      activeTeam: "teamA",
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
     };
 
-    socket.on("scoreUpdate", (data) => {
-      score = {
-        runs: Number(data?.runs ?? 0) || 0,
-        wickets: Number(data?.wickets ?? 0) || 0,
-        over: normalizeOver(data?.over)
+    function normalizeTeam(team, fallbackName) {
+      const name = String(team?.name ?? fallbackName);
+      const runs = Number(team?.runs ?? 0);
+      const wickets = Number(team?.wickets ?? 0);
+      const over = normalizeOver(team?.over);
+      return {
+        name: name || fallbackName,
+        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+        over
       };
-      document.getElementById("score").innerText =
-        score.runs + "/" + score.wickets + " (" + formatOver(score.over) + ")";
-      document.getElementById("overPill").innerText = "Over: " + formatOver(score.over);
+    }
+
+    function normalizeMatch(state) {
+      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
+      return {
+        activeTeam,
+        teamA: normalizeTeam(state?.teamA, "Team A"),
+        teamB: normalizeTeam(state?.teamB, "Team B")
+      };
+    }
+
+    function render() {
+      const a = match.teamA;
+      const b = match.teamB;
+
+      document.getElementById("teamAName").innerText = a.name;
+      document.getElementById("teamBName").innerText = b.name;
+      document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
+      document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
+
+      const aActive = match.activeTeam === "teamA";
+      document.getElementById("teamAActive").style.display = aActive ? "inline-flex" : "none";
+      document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
+      document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
+      document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
+    }
+
+    socket.on("matchUpdate", (data) => {
+      match = normalizeMatch(data);
+      render();
     });
+
+    socket.on("matchesUpdate", (rows) => {
+      if (Array.isArray(rows)) {
+        history = rows;
+        renderHistory();
+      }
+    });
+
+    // fallback: if only scoreUpdate is received, treat it as active team score
+    socket.on("scoreUpdate", (data) => {
+      const t = normalizeTeam(data, match.activeTeam === "teamB" ? "Team B" : "Team A");
+      if (match.activeTeam === "teamB") match.teamB = t;
+      else match.teamA = t;
+      render();
+    });
+
+    loadHistory();
 
   </script>
 </body>

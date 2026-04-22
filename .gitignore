@@ -1,1 +1,6 @@
 node_modules
+
+# SQLite database artifacts
+data.sqlite
+data.sqlite-wal
+data.sqlite-shm

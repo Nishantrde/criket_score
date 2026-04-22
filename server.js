@@ -2,11 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config();
-
-const session = require("express-session");
-const passport = require("passport");
-const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const MongoStore = require("connect-mongo");
+const crypto = require("crypto");
 
 const app = express();
 const server = http.createServer(app);
@@ -17,14 +13,10 @@ const {
   getTeamNames,
   setTeamNames,
   listMatches,
-  clearMatches,
-  listAdminEmails,
-  isAdminEmail,
-  addAdminEmail,
-  removeAdminEmail
+  clearMatches
 } = require("./db");
 
-const PORT = Number.parseInt(process.env.PORT, 10) || 3000;
+const PORT = Number.parseInt(process.env.PORT, 10) || 3131;
 
 const io = new Server(server, {
   // If WebSockets are blocked in production, Socket.IO will fall back to polling (often feels slower).
@@ -37,167 +29,79 @@ const io = new Server(server, {
 
 app.use(express.json());
 
-app.set("trust proxy", 1);
+const ADMIN_USER = String(process.env.ADMIN_USER || "air19818");
+const ADMIN_PASS = String(process.env.ADMIN_PASS || "air19818");
 
-const sessionSecret = process.env.SESSION_SECRET || "dev-session-secret";
+const ADMIN_SOCKET_TOKEN_TTL_MS = 1000 * 60 * 10; // 10 minutes
+const adminSocketTokens = new Map(); // token -> expiresAtMs
 
-const sessionStore =
-  process.env.MONGODB_URI && process.env.SESSION_STORE !== "memory"
-    ? MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        collectionName: "sessions",
-        ttl: 60 * 60 * 24 * 7
-      })
-    : undefined;
-
-const sessionMiddleware = session({
-  secret: sessionSecret,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
-  },
-  store: sessionStore
-});
-
-app.use(sessionMiddleware);
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user, done) => done(null, user));
-
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
-      },
-      (accessToken, refreshToken, profile, done) => {
-        try {
-          const email = String(profile?.emails?.[0]?.value || "").trim().toLowerCase();
-          if (!email) return done(null, false);
-          return done(null, {
-            email,
-            name: profile?.displayName || "",
-            picture: profile?.photos?.[0]?.value || ""
-          });
-        } catch (err) {
-          return done(err);
-        }
-      }
-    )
-  );
-}
-
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated && req.isAuthenticated()) return next();
-  if (req.path.startsWith("/api/")) return res.status(401).json({ ok: false, error: "Login required." });
-  return res.redirect("/login");
-}
-
-async function ensureAdmin(req, res, next) {
+function parseBasicAuth(headerValue) {
+  const h = String(headerValue || "");
+  if (!h.toLowerCase().startsWith("basic ")) return null;
+  const b64 = h.slice(6).trim();
+  let decoded = "";
   try {
-    if (!(req.isAuthenticated && req.isAuthenticated())) {
-      if (req.path.startsWith("/api/")) return res.status(401).json({ ok: false, error: "Login required." });
-      return res.redirect("/login");
-    }
-    const email = req.user?.email;
-    if (!email) return res.status(403).json({ ok: false, error: "Forbidden." });
-    const ok = await isAdminEmail(email);
-    if (!ok) {
-      if (req.path.startsWith("/api/")) return res.status(403).json({ ok: false, error: "Admin access required." });
-      return res.status(403).send("Forbidden");
-    }
-    return next();
-  } catch (err) {
-    console.error("ensureAdmin failed", err);
-    return res.status(500).json({ ok: false, error: "Auth check failed." });
+    decoded = Buffer.from(b64, "base64").toString("utf8");
+  } catch {
+    return null;
   }
+  const idx = decoded.indexOf(":");
+  if (idx < 0) return null;
+  return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
 }
 
-app.get("/login", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "login.html"));
-});
+function isValidAdminCreds(user, pass) {
+  return String(user) === ADMIN_USER && String(pass) === ADMIN_PASS;
+}
 
-app.get("/auth/google", (req, res, next) => {
-  if (!passport._strategy("google")) {
-    return res
-      .status(500)
-      .send("Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
+function ensureAdminBasic(req, res, next) {
+  const creds = parseBasicAuth(req.headers.authorization);
+  if (creds && isValidAdminCreds(creds.user, creds.pass)) return next();
+
+  if (req.path.startsWith("/api/")) {
+    return res.status(401).json({ ok: false, error: "Admin authentication required." });
   }
-  return passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
-});
+  res.setHeader("WWW-Authenticate", 'Basic realm="Cricket Admin"');
+  return res.status(401).send("Authentication required");
+}
 
-app.get(
-  "/auth/google/callback",
-  (req, res, next) => {
-    if (!passport._strategy("google")) return res.redirect("/login");
-    return passport.authenticate("google", { failureRedirect: "/login" })(req, res, next);
-  },
-  async (req, res) => {
-    try {
-      const email = req.user?.email;
-      const admin = email ? await isAdminEmail(email) : false;
-      return res.redirect(admin ? "/admin" : "/client");
-    } catch (err) {
-      console.error("Post-login redirect failed", err);
-      return res.redirect("/client");
-    }
+function issueAdminSocketToken() {
+  const token = crypto.randomBytes(24).toString("hex");
+  const expiresAt = Date.now() + ADMIN_SOCKET_TOKEN_TTL_MS;
+  adminSocketTokens.set(token, expiresAt);
+  return { token, expiresAt };
+}
+
+function isValidAdminSocketToken(token) {
+  const t = String(token || "");
+  if (!t) return false;
+  const expiresAt = adminSocketTokens.get(t);
+  if (!expiresAt) return false;
+  if (Date.now() > expiresAt) {
+    adminSocketTokens.delete(t);
+    return false;
   }
-);
+  return true;
+}
 
-app.post("/auth/logout", ensureAuthenticated, (req, res) => {
-  if (!req.logout) return res.json({ ok: true });
-  req.logout((err) => {
-    if (err) {
-      console.error("Logout failed", err);
-      return res.status(500).json({ ok: false, error: "Logout failed." });
-    }
-    req.session?.destroy(() => {
-      res.clearCookie("connect.sid");
-      return res.json({ ok: true });
-    });
-  });
-});
-
-app.get("/api/me", ensureAuthenticated, async (req, res) => {
-  try {
-    const email = req.user?.email;
-    const admin = email ? await isAdminEmail(email) : false;
-    return res.json({ ok: true, user: { email, name: req.user?.name || "", picture: req.user?.picture || "" }, isAdmin: admin });
-  } catch (err) {
-    console.error("/api/me failed", err);
-    return res.status(500).json({ ok: false, error: "Failed to load session." });
-  }
-});
-
-app.get("/admin", ensureAdmin, (req, res) => {
+app.get("/admin", ensureAdminBasic, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.get("/client", ensureAuthenticated, (req, res) => {
+app.get("/client", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "client.html"));
 });
 
 // prevent direct HTML access bypassing the above route guards
-app.get("/index.html", ensureAdmin, (req, res) => {
+app.get("/index.html", ensureAdminBasic, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
-app.get("/client.html", ensureAuthenticated, (req, res) => {
+app.get("/client.html", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "client.html"));
 });
 
-app.get("/", async (req, res) => {
-  if (!(req.isAuthenticated && req.isAuthenticated())) return res.redirect("/login");
-  const email = req.user?.email;
-  const admin = email ? await isAdminEmail(email) : false;
-  return res.redirect(admin ? "/admin" : "/client");
+app.get("/", (req, res) => {
+  return res.redirect("/client");
 });
 
 // serve frontend
@@ -282,9 +186,6 @@ async function emitMatchesUpdate(target) {
 
 app.get("/api/matches", async (req, res) => {
   try {
-    if (!(req.isAuthenticated && req.isAuthenticated())) {
-      return res.status(401).json({ ok: false, error: "Login required." });
-    }
     const limit = Number.parseInt(req.query?.limit, 10);
     const matches = await listMatches({ limit: Number.isFinite(limit) ? limit : 5000 });
     return res.json({ ok: true, matches });
@@ -294,7 +195,12 @@ app.get("/api/matches", async (req, res) => {
   }
 });
 
-app.put("/api/teams", ensureAdmin, async (req, res) => {
+app.get("/api/admin/socket-token", ensureAdminBasic, (req, res) => {
+  const issued = issueAdminSocketToken();
+  return res.json({ ok: true, token: issued.token, expiresAt: issued.expiresAt });
+});
+
+app.put("/api/teams", ensureAdminBasic, async (req, res) => {
   try {
     const teamAName = cleanTeamName(req.body?.teamAName, match.teamA.name);
     const teamBName = cleanTeamName(req.body?.teamBName, match.teamB.name);
@@ -320,12 +226,10 @@ app.put("/api/teams", ensureAdmin, async (req, res) => {
 
 app.post("/api/matches", async (req, res) => {
   try {
-    if (!(req.isAuthenticated && req.isAuthenticated())) {
-      return res.status(401).json({ ok: false, error: "Login required." });
-    }
-    const email = req.user?.email;
-    if (!email || !(await isAdminEmail(email))) {
-      return res.status(403).json({ ok: false, error: "Admin access required." });
+    // protect recording a match
+    const creds = parseBasicAuth(req.headers.authorization);
+    if (!creds || !isValidAdminCreds(creds.user, creds.pass)) {
+      return res.status(401).json({ ok: false, error: "Admin authentication required." });
     }
 
     const winner = req.body?.winner;
@@ -373,7 +277,7 @@ app.post("/api/matches", async (req, res) => {
   }
 });
 
-app.delete("/api/matches", ensureAdmin, async (req, res) => {
+app.delete("/api/matches", ensureAdminBasic, async (req, res) => {
   try {
     await clearMatches();
     emitMatchesUpdate();
@@ -384,65 +288,14 @@ app.delete("/api/matches", ensureAdmin, async (req, res) => {
   }
 });
 
-app.get("/api/admins", ensureAdmin, async (req, res) => {
-  try {
-    const admins = await listAdminEmails();
-    return res.json({ ok: true, admins });
-  } catch (err) {
-    console.error("List admins failed", err);
-    return res.status(500).json({ ok: false, error: "Failed to load admin list." });
-  }
-});
+function isAdminSocket(socket) {
+  const token = socket.handshake?.auth?.adminToken;
+  if (isValidAdminSocketToken(token)) return true;
 
-app.post("/api/admins", ensureAdmin, async (req, res) => {
-  try {
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!/^[^@\s]+@gmail\.com$/i.test(email)) {
-      return res.status(400).json({ ok: false, error: "A valid Gmail address is required." });
-    }
-    await addAdminEmail(email);
-    const admins = await listAdminEmails();
-    return res.json({ ok: true, admins });
-  } catch (err) {
-    console.error("Add admin failed", err);
-    return res.status(500).json({ ok: false, error: "Failed to add admin." });
-  }
-});
-
-app.delete("/api/admins", ensureAdmin, async (req, res) => {
-  try {
-    const email = String(req.body?.email || req.query?.email || "").trim().toLowerCase();
-    if (!email) return res.status(400).json({ ok: false, error: "Email is required." });
-    await removeAdminEmail(email);
-    const admins = await listAdminEmails();
-    return res.json({ ok: true, admins });
-  } catch (err) {
-    console.error("Remove admin failed", err);
-    return res.status(500).json({ ok: false, error: "Failed to remove admin." });
-  }
-});
-
-// Auth for sockets: require a logged-in user for all connections
-function wrap(middleware) {
-  return (socket, next) => {
-    const res = {
-      getHeader() {
-        return undefined;
-      },
-      setHeader() {},
-      end() {}
-    };
-    return middleware(socket.request, res, next);
-  };
+  const creds = parseBasicAuth(socket.handshake?.headers?.authorization);
+  if (creds && isValidAdminCreds(creds.user, creds.pass)) return true;
+  return false;
 }
-
-io.use(wrap(sessionMiddleware));
-io.use(wrap(passport.initialize()));
-io.use(wrap(passport.session()));
-io.use((socket, next) => {
-  if (socket.request?.user?.email) return next();
-  return next(new Error("unauthorized"));
-});
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
@@ -466,8 +319,7 @@ io.on("connection", (socket) => {
 
   socket.on("updateMatch", async (data) => {
     try {
-      const userEmail = socket.request?.user?.email;
-      if (!userEmail || !(await isAdminEmail(userEmail))) return;
+      if (!isAdminSocket(socket)) return;
 
       const nextMatch = normalizeMatchState(data);
       const shouldPersistNames = namesChanged(nextMatch);
@@ -490,8 +342,7 @@ io.on("connection", (socket) => {
   // backward compatibility: update active team only
   socket.on("updateScore", async (data) => {
     try {
-      const userEmail = socket.request?.user?.email;
-      if (!userEmail || !(await isAdminEmail(userEmail))) return;
+      if (!isAdminSocket(socket)) return;
 
       match[match.activeTeam] = normalizeTeam(
         {

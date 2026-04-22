@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const DEFAULT_ADMIN_EMAIL = "nishant.garg.dev@gmail.com";
 
 let isConnected = false;
+let connectingPromise = null;
 
 const SettingsSchema = new mongoose.Schema(
   {
@@ -44,11 +45,37 @@ function normalizeEmail(email) {
 }
 
 async function connectMongo() {
-  if (isConnected) return;
+  if (isConnected || mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return;
+  }
+  if (connectingPromise) {
+    await connectingPromise;
+    return;
+  }
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI is not set");
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 7000 });
-  isConnected = true;
+  // Fail fast if Mongo is unreachable (important for production)
+  mongoose.set("bufferCommands", false);
+
+  connectingPromise = (async () => {
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 7000,
+      connectTimeoutMS: 7000,
+      socketTimeoutMS: 15000
+    });
+    // Ensure the underlying connection is fully established.
+    if (typeof mongoose.connection.asPromise === "function") {
+      await mongoose.connection.asPromise();
+    }
+    isConnected = true;
+  })();
+
+  try {
+    await connectingPromise;
+  } finally {
+    connectingPromise = null;
+  }
 }
 
 async function initDb() {

@@ -287,7 +287,15 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io({ transports: ["websocket", "polling"] });
+
+    socket.on("connect", () => {
+      console.log("socket connected", socket.id, "transport:", socket.io.engine.transport.name);
+    });
+
+    socket.io.engine.on("upgrade", (transport) => {
+      console.log("transport upgraded to", transport.name);
+    });
 
     function overToBalls(value) {
       const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));

@@ -5,7 +5,14 @@ const app = express();
 const server = http.createServer(app);
 const path = require("path");
 
-const io = new Server(server);
+const io = new Server(server, {
+  // If WebSockets are blocked in production, Socket.IO will fall back to polling (often feels slower).
+  // These settings keep defaults but make connectivity issues easier to spot and help detect dead clients sooner.
+  transports: ["websocket", "polling"],
+  allowUpgrades: true,
+  pingInterval: 10000,
+  pingTimeout: 5000
+});
 
 // serve frontend
 app.use(express.static("public"));
@@ -42,6 +49,11 @@ function normalizeOver(value) {
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+  console.log("Transport:", socket.conn.transport?.name);
+
+  socket.conn.on("upgrade", (transport) => {
+    console.log("Transport upgraded:", transport?.name);
+  });
 
   // send current score on join
   socket.emit("scoreUpdate", score);

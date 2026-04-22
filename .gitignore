@@ -1,5 +1,9 @@
 node_modules
 
+# Secrets
+.env
+.env.*
+
 # SQLite database artifacts
 data.sqlite
 data.sqlite-wal

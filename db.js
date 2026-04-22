@@ -1,151 +1,26 @@
-const sqlite3 = require("sqlite3");
-const path = require("path");
+const sqlite = require("./db_sqlite");
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, "data.sqlite");
-
-const db = new sqlite3.Database(dbPath);
-
-db.serialize(() => {
-  db.run("PRAGMA journal_mode = WAL;");
-  db.run("PRAGMA foreign_keys = ON;");
-});
-
-function initDb() {
-  return Promise.all([
-    run(
-      `CREATE TABLE IF NOT EXISTS matches (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at TEXT NOT NULL,
-        active_team TEXT NOT NULL,
-        winner TEXT NOT NULL,
-
-        teamA_name TEXT NOT NULL,
-        teamA_runs INTEGER NOT NULL,
-        teamA_wickets INTEGER NOT NULL,
-        teamA_overs REAL NOT NULL,
-
-        teamB_name TEXT NOT NULL,
-        teamB_runs INTEGER NOT NULL,
-        teamB_wickets INTEGER NOT NULL,
-        teamB_overs REAL NOT NULL,
-
-        raw_json TEXT NOT NULL
-      );`
-    ),
-    run(
-      `CREATE TABLE IF NOT EXISTS team_settings (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        teamA_name TEXT NOT NULL,
-        teamB_name TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );`
-    )
-  ]);
+function shouldUseMongo() {
+  if (process.env.DB_KIND) return String(process.env.DB_KIND).toLowerCase() === "mongo";
+  return !!process.env.MONGODB_URI;
 }
 
-function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(err) {
-      if (err) return reject(err);
-      resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
-}
+let mongo = null;
 
-function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, function onGet(err, row) {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
-}
-
-function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, function onAll(err, rows) {
-      if (err) return reject(err);
-      resolve(rows);
-    });
-  });
-}
-
-async function getTeamNames() {
-  const row = await get("SELECT teamA_name, teamB_name FROM team_settings WHERE id = 1;");
-  if (!row) {
-    return { teamAName: "Team A", teamBName: "Team B" };
+function getBackend() {
+  if (shouldUseMongo()) {
+    if (!mongo) mongo = require("./db_mongo");
+    return mongo;
   }
-  return {
-    teamAName: String(row.teamA_name || "Team A"),
-    teamBName: String(row.teamB_name || "Team B")
-  };
+  return sqlite;
 }
 
-async function setTeamNames({ teamAName, teamBName }) {
-  const updatedAt = new Date().toISOString();
-  await run(
-    `INSERT INTO team_settings (id, teamA_name, teamB_name, updated_at)
-     VALUES (1, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       teamA_name = excluded.teamA_name,
-       teamB_name = excluded.teamB_name,
-       updated_at = excluded.updated_at;`,
-    [teamAName, teamBName, updatedAt]
-  );
-  return { teamAName, teamBName, updatedAt };
-}
-
-async function listMatches({ limit = 5000 } = {}) {
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 5000) : 5000;
-  return all(
-    `SELECT
-      id,
-      created_at,
-      active_team,
-      winner,
-      teamA_name, teamA_runs, teamA_wickets, teamA_overs,
-      teamB_name, teamB_runs, teamB_wickets, teamB_overs
-    FROM matches
-    ORDER BY created_at DESC
-    LIMIT ?;`,
-    [safeLimit]
-  );
-}
-
-async function insertMatch({ match, winner }) {
-  const createdAt = new Date().toISOString();
-  const rawJson = JSON.stringify({ match, winner, createdAt });
-
-  const result = await run(
-    `INSERT INTO matches (
-      created_at, active_team, winner,
-      teamA_name, teamA_runs, teamA_wickets, teamA_overs,
-      teamB_name, teamB_runs, teamB_wickets, teamB_overs,
-      raw_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-    [
-      createdAt,
-      match.activeTeam,
-      winner,
-      match.teamA.name,
-      match.teamA.runs,
-      match.teamA.wickets,
-      match.teamA.over,
-      match.teamB.name,
-      match.teamB.runs,
-      match.teamB.wickets,
-      match.teamB.over,
-      rawJson
-    ]
-  );
-
-  return { id: result.lastID, createdAt };
-}
-
-module.exports = {
-  initDb,
-  insertMatch,
-  getTeamNames,
-  setTeamNames,
-  listMatches
-};
+module.exports = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const backend = getBackend();
+      return backend[prop];
+    }
+  }
+);

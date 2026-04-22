@@ -352,7 +352,11 @@
         <h1>Cricket Scoring Admin</h1>
         <p class="sub">Admin: <b>/admin</b> • Audience: <b>/client</b></p>
       </div>
-      <div class="pill">Admin</div>
+      <div style="display:grid; gap:8px; justify-items:end;">
+        <div class="pill">Admin</div>
+        <div class="pill" id="whoami" style="max-width: 340px; overflow: hidden; text-overflow: ellipsis;">Loading…</div>
+        <button class="smallBtn" onclick="logout()">Logout</button>
+      </div>
     </header>
 
     <div class="grid">
@@ -448,10 +452,31 @@
       <section class="card">
         <div class="scoreRow" style="margin-bottom: 12px;">
           <div>
+            <div class="label">Access</div>
+            <div class="score" style="font-size: 22px;">Admin Emails</div>
+          </div>
+          <div class="meta">
+            <button class="smallBtn" onclick="loadAdmins()">Refresh</button>
+          </div>
+        </div>
+
+        <div class="editor" style="margin-top: 0; padding-top: 0; border-top: 0; grid-template-columns: 1fr auto;">
+          <div class="field">
+            <div class="label">Grant Access (Gmail)</div>
+            <input id="adminEmailInput" type="email" inputmode="email" placeholder="someone@gmail.com" />
+          </div>
+          <button class="btnPrimary" onclick="addAdmin()">Add</button>
+        </div>
+
+        <div id="adminList" class="kv" style="margin-top: 12px;"></div>
+
+        <div class="scoreRow" style="margin-top: 16px; margin-bottom: 12px;">
+          <div>
             <div class="label">History</div>
             <div class="score" style="font-size: 22px;">Recorded Matches</div>
           </div>
           <div class="meta">
+            <button class="smallBtn" onclick="clearHistory()">Clear</button>
             <button class="smallBtn" onclick="loadHistory()">Refresh</button>
           </div>
         </div>
@@ -523,6 +548,125 @@
     };
 
     let history = [];
+    let admins = [];
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        const msg = json.error || `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+      return json;
+    }
+
+    async function loadMe() {
+      try {
+        const json = await fetchJson("/api/me");
+        const fullName = String(json?.user?.name || "").trim();
+        const firstName = fullName ? fullName.split(/\s+/)[0] : "";
+        document.getElementById("whoami").innerText = firstName || "Admin";
+      } catch (err) {
+        document.getElementById("whoami").innerText = "Not signed in";
+      }
+    }
+
+    async function clearHistory() {
+      const confirmed = window.confirm("This will permanently delete ALL recorded matches. Continue?");
+      if (!confirmed) return;
+      try {
+        setStatus("Clearing match history…", "");
+        await fetchJson("/api/matches", { method: "DELETE" });
+        history = [];
+        renderHistory();
+        setStatus("Match history cleared.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Failed to clear match history.", "err");
+      }
+    }
+
+    async function logout() {
+      try {
+        await fetchJson("/auth/logout", { method: "POST" });
+      } catch (err) {
+        console.error(err);
+      }
+      window.location.href = "/login";
+    }
+
+    function renderAdmins() {
+      const box = document.getElementById("adminList");
+      if (!Array.isArray(admins) || admins.length === 0) {
+        box.innerHTML = `<div class="pill" style="width: fit-content;">No admins found.</div>`;
+        return;
+      }
+
+      box.innerHTML = admins
+        .map((a) => {
+          const rawEmail = String(a?.email || "");
+          const email = escapeHtml(rawEmail);
+          return `
+            <div class="kvItem">
+              <div style="overflow:hidden; text-overflow:ellipsis;">${email}</div>
+              <button class="smallBtn" onclick='removeAdmin(${JSON.stringify(rawEmail)})'>Remove</button>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    async function loadAdmins() {
+      try {
+        const json = await fetchJson("/api/admins");
+        admins = Array.isArray(json.admins) ? json.admins : [];
+        renderAdmins();
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Failed to load admin emails.", "err");
+      }
+    }
+
+    async function addAdmin() {
+      const input = document.getElementById("adminEmailInput");
+      const email = String(input.value || "").trim().toLowerCase();
+      if (!/^[^@\s]+@gmail\.com$/i.test(email)) {
+        setStatus("Enter a valid Gmail address.", "err");
+        return;
+      }
+      try {
+        const json = await fetchJson("/api/admins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        admins = Array.isArray(json.admins) ? json.admins : [];
+        input.value = "";
+        renderAdmins();
+        setStatus("Admin added.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Failed to add admin.", "err");
+      }
+    }
+
+    async function removeAdmin(email) {
+      const confirmed = window.confirm(`Remove admin access for ${email}?`);
+      if (!confirmed) return;
+      try {
+        const json = await fetchJson("/api/admins", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        admins = Array.isArray(json.admins) ? json.admins : [];
+        renderAdmins();
+        setStatus("Admin removed.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Failed to remove admin.", "err");
+      }
+    }
 
     function escapeHtml(s) {
       return String(s ?? "")
@@ -821,6 +965,8 @@
     document.getElementById("teamANameInput").addEventListener("input", onTeamNameInput);
     document.getElementById("teamBNameInput").addEventListener("input", onTeamNameInput);
 
+    loadMe();
+    loadAdmins();
     loadHistory();
   </script>
 </body>

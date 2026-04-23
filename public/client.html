@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,9 +14,7 @@
       --accent: #f2c200;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -52,7 +49,7 @@
       height: 8px;
       border-radius: 999px;
       background: var(--accent);
-      border: 1px solid rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(0,0,0,0.12);
       flex: 0 0 auto;
     }
 
@@ -82,9 +79,7 @@
     }
 
     @media (max-width: 860px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+      .grid { grid-template-columns: 1fr; }
     }
 
     .teamCard {
@@ -95,7 +90,7 @@
     }
 
     .teamCard.active {
-      border-color: rgba(0, 0, 0, 0.25);
+      border-color: rgba(0,0,0,0.25);
       box-shadow: 0 0 0 3px rgba(242, 194, 0, 0.35);
     }
 
@@ -148,9 +143,7 @@
     }
 
     @media (max-width: 480px) {
-      .score {
-        font-size: 44px;
-      }
+      .score { font-size: 44px; }
     }
 
     .hist {
@@ -199,7 +192,6 @@
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
@@ -243,20 +235,16 @@
           <div class="label">History</div>
           <div style="font-weight: 850; font-size: 18px;">Recorded Matches</div>
         </div>
-        <button onclick="loadHistory()"
-          style="border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-weight: 650; cursor: pointer;">Refresh</button>
+        <button onclick="loadHistory()" style="border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-weight: 650; cursor: pointer;">Refresh</button>
       </div>
       <div id="history" class="hist"></div>
     </div>
   </div>
 
-
+  
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io({
-      transports: ["websocket", "polling"],
-      auth: { role: "viewer" }
-    });
+    const socket = io({ transports: ["websocket", "polling"] });
 
     socket.on("connect", () => {
       console.log("socket connected", socket.id, "transport:", socket.io.engine.transport.name);
@@ -412,5 +400,4 @@
 
   </script>
 </body>
-
 </html>

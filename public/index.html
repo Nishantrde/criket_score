@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,9 +14,7 @@
       --accent: #f2c200;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -64,7 +61,7 @@
       height: 8px;
       border-radius: 999px;
       background: var(--accent);
-      border: 1px solid rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(0,0,0,0.12);
       flex: 0 0 auto;
     }
 
@@ -94,9 +91,7 @@
     }
 
     @media (max-width: 860px) {
-      .teamGrid {
-        grid-template-columns: 1fr;
-      }
+      .teamGrid { grid-template-columns: 1fr; }
     }
 
     .teamCard {
@@ -107,7 +102,7 @@
     }
 
     .teamCard.active {
-      border-color: rgba(0, 0, 0, 0.25);
+      border-color: rgba(0,0,0,0.25);
       box-shadow: 0 0 0 3px rgba(242, 194, 0, 0.35);
     }
 
@@ -147,13 +142,8 @@
       font-weight: 750;
     }
 
-    .seg button:last-child {
-      border-right: 0;
-    }
-
-    .seg .on {
-      background: var(--accent);
-    }
+    .seg button:last-child { border-right: 0; }
+    .seg .on { background: var(--accent); }
 
     .status {
       margin-top: 12px;
@@ -166,13 +156,8 @@
       min-height: 20px;
     }
 
-    .status.ok {
-      border-color: rgba(0, 0, 0, 0.18);
-    }
-
-    .status.err {
-      border-color: rgba(0, 0, 0, 0.35);
-    }
+    .status.ok { border-color: rgba(0,0,0,0.18); }
+    .status.err { border-color: rgba(0,0,0,0.35); }
 
     @media (max-width: 860px) {
       .grid {
@@ -235,66 +220,6 @@
       gap: 10px;
     }
 
-    .controlsTight {
-      margin-top: 10px;
-    }
-
-    .sectionTitle {
-      margin-top: 14px;
-      margin-bottom: 8px;
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
-
-    .statGrid {
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .statCard {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--bg);
-      padding: 10px 12px;
-      display: grid;
-      gap: 6px;
-    }
-
-    .statName {
-      font-weight: 750;
-      letter-spacing: -0.1px;
-    }
-
-    .statValue {
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .listTable {
-      display: grid;
-      gap: 6px;
-      max-height: 180px;
-      overflow: auto;
-      padding-right: 2px;
-    }
-
-    .listItem {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-      padding: 8px 10px;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
     .editor {
       margin-top: 14px;
       padding-top: 14px;
@@ -320,42 +245,15 @@
       font-weight: 650;
     }
 
-    select {
-      width: 100%;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-weight: 650;
-    }
-
     input:focus-visible {
       outline: 3px solid var(--accent);
       outline-offset: 2px;
     }
 
-    select:focus-visible {
-      outline: 3px solid var(--accent);
-      outline-offset: 2px;
-    }
-
     @media (max-width: 480px) {
-      .controls {
-        grid-template-columns: 1fr;
-      }
-
-      .score {
-        font-size: 36px;
-      }
-
-      .editor {
-        grid-template-columns: 1fr;
-      }
-
-      .statGrid {
-        grid-template-columns: 1fr;
-      }
+      .controls { grid-template-columns: 1fr; }
+      .score { font-size: 36px; }
+      .editor { grid-template-columns: 1fr; }
     }
 
     button {
@@ -369,23 +267,17 @@
       transition: transform 120ms ease, background 120ms ease;
     }
 
-    button:active {
-      transform: translateY(1px);
-    }
-
-    button:focus-visible {
-      outline: 3px solid var(--accent);
-      outline-offset: 2px;
-    }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
     .btnPrimary {
       background: var(--accent);
-      border-color: rgba(0, 0, 0, 0.12);
+      border-color: rgba(0,0,0,0.12);
     }
 
     .btnWarn {
       background: var(--surface);
-      border-color: rgba(0, 0, 0, 0.25);
+      border-color: rgba(0,0,0,0.25);
     }
 
     .sideTitle {
@@ -411,9 +303,7 @@
       background: var(--bg);
     }
 
-    .kvItem b {
-      font-weight: 700;
-    }
+    .kvItem b { font-weight: 700; }
 
     .hist {
       display: grid;
@@ -454,7 +344,6 @@
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <header>
@@ -463,10 +352,7 @@
         <h1>Cricket Scoring Admin</h1>
         <p class="sub">Admin: <b>/admin</b> • Audience: <b>/client</b></p>
       </div>
-      <div style="display:grid; gap:8px; justify-items:end;">
-        <div class="pill">Admin</div>
-        <div class="pill">Live viewers: <b id="viewerCountAdmin">0</b></div>
-      </div>
+      <div class="pill">Admin</div>
     </header>
 
     <div class="grid">
@@ -513,79 +399,38 @@
           </div>
         </div>
 
-        <div class="sectionTitle">Runs</div>
         <div class="controls">
-          <button class="btnPrimary" onclick="scoreRuns(1)">1</button>
-          <button class="btnPrimary" onclick="scoreRuns(2)">2</button>
-          <button class="btnPrimary" onclick="scoreRuns(3)">3</button>
-          <button class="btnPrimary" onclick="scoreRuns(4)">4</button>
-          <button class="btnPrimary" onclick="scoreRuns(5)">5</button>
-          <button class="btnPrimary" onclick="scoreRuns(6)">6</button>
+          <button class="btnPrimary" onclick="hit(1)">+1 Run</button>
+          <button class="btnPrimary" onclick="hit(2)">+2 Run</button>
+          <button class="btnPrimary" onclick="hit(3)">+3 Run</button>
+          <button class="btnPrimary" onclick="hit(4)">FOUR</button>
+          <button class="btnPrimary" onclick="hit(5)">+5 Run</button>
+          <button class="btnPrimary" onclick="hit(6)">SIX</button>
+          <button class="btnWarn" onclick="wicket()">WICKET</button>
+          <button class="btnWarn" onclick="ball_count()">+1 BALL</button>
+          <button class="btnWarn" onclick="resetActiveTeam()">RESET TEAM</button>
         </div>
 
-        <div class="sectionTitle">Extras</div>
-        <div class="controls controlsTight">
-          <button class="btnWarn" onclick="addExtra('wide')">Wide</button>
-          <button class="btnWarn" onclick="addExtra('noBall')">No-ball</button>
-          <button class="btnWarn" onclick="addExtra('bye')">Bye</button>
-        </div>
-
-        <div class="sectionTitle">Actions</div>
-        <div class="controls controlsTight">
-          <button class="btnWarn" onclick="handleWicket()">Wicket</button>
-          <button class="btnWarn" onclick="rotateStrike()">Rotate Strike</button>
-          <button class="btnWarn" onclick="resetActiveInnings()">Reset Innings</button>
-        </div>
-
-        <div class="sectionTitle">Batting</div>
-        <div class="statGrid">
-          <div class="statCard">
-            <div class="label">Striker</div>
-            <div class="statName" id="strikerName">-</div>
-            <div class="statValue" id="strikerStats">0 (0) SR 0.00</div>
-          </div>
-          <div class="statCard">
-            <div class="label">Non-striker</div>
-            <div class="statName" id="nonStrikerName">-</div>
-            <div class="statValue" id="nonStrikerStats">0 (0) SR 0.00</div>
-          </div>
-        </div>
-
-        <div class="kv" style="margin-top: 10px;">
-          <div class="kvItem"><span>Extras (W/NB/B)</span><b id="extrasSummary">0 (0/0/0)</b></div>
-        </div>
-
-        <div class="sectionTitle">Bowling</div>
-        <div class="editor" style="grid-template-columns: 1fr 1fr auto;">
+        <div class="editor">
           <div class="field">
-            <div class="label">Current Bowler</div>
-            <select id="bowlerSelect"></select>
+            <div class="label">Runs</div>
+            <input id="runsInput" type="number" min="0" step="1" value="0" />
           </div>
           <div class="field">
-            <div class="label">New Bowler Name</div>
-            <input id="newBowlerInput" type="text" placeholder="e.g. Bowler 2" />
+            <div class="label">Wickets</div>
+            <input id="wicketsInput" type="number" min="0" step="1" value="0" />
           </div>
-          <button class="btnPrimary" onclick="setCurrentBowler()">Set Bowler</button>
-        </div>
-
-        <div class="statGrid">
-          <div class="statCard">
-            <div class="label">Current Bowler Card</div>
-            <div class="statName" id="currentBowlerName">-</div>
-            <div class="statValue" id="currentBowlerStats">0.0 overs • 0 runs • 0 wickets</div>
-            <button class="smallBtn btnWarn" onclick="incrementBowlerWicket()">Increment Bowler Wicket</button>
+          <div class="field">
+            <div class="label">Over</div>
+            <input id="overInput" type="text" inputmode="decimal" value="0.0" placeholder="e.g. 12.3" />
           </div>
-          <div class="statCard">
-            <div class="label">All Bowlers</div>
-            <div id="bowlerList" class="listTable"></div>
-          </div>
+          <button class="btnPrimary" onclick="pushScore()">Update Score</button>
         </div>
 
         <div class="editor">
           <div class="field">
             <div class="label">Winner (required)</div>
-            <select id="winnerSelect"
-              style="width:100%; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:12px; padding:10px 12px; font-weight:650;">
+            <select id="winnerSelect" style="width:100%; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:12px; padding:10px 12px; font-weight:650;">
               <option value="">Select winner</option>
               <option value="teamA" id="winnerA">Team A</option>
               <option value="teamB" id="winnerB">Team B</option>
@@ -620,7 +465,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     let socket = null;
-    const MAX_WICKETS = 10;
 
     function overToBalls(value) {
       const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
@@ -645,142 +489,33 @@
       return normalizeOver(value).toFixed(1);
     }
 
-    function toSafeInt(value, fallback = 0) {
-      const num = Number(value);
-      if (!Number.isFinite(num)) return fallback;
-      return Math.floor(num);
+    function parseOverInput(str) {
+      const raw = String(str ?? "").trim();
+      if (!raw) return 0;
+
+      if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+
+      const m = raw.match(/^(\d+)\.(\d+)$/);
+      if (!m) return null;
+      const overs = Number.parseInt(m[1], 10);
+      const ballsStr = m[2];
+
+      // allow 1.0 or 1.00 etc
+      if (/^0+$/.test(ballsStr)) return overs;
+      if (ballsStr.length !== 1) return null;
+
+      const balls = Number.parseInt(ballsStr, 10);
+      if (!Number.isFinite(balls) || balls < 0 || balls > 5) return null;
+      return overs + balls / 10;
     }
 
-    function cleanName(value, fallback, maxLen = 48) {
-      const name = String(value ?? "").trim();
-      if (!name) return fallback;
-      return name.slice(0, maxLen);
-    }
-
-    function createDefaultBatter(name) {
-      return { name, runs: 0, balls: 0 };
-    }
-
-    function createDefaultBowler(name) {
-      return { name, balls: 0, runs: 0, wickets: 0 };
-    }
-
-    function createDefaultTeam(name) {
-      return {
-        name,
-        runs: 0,
-        wickets: 0,
-        over: 0,
-        legalBalls: 0,
-        extras: { wide: 0, noBall: 0, bye: 0, total: 0 },
-        batting: {
-          striker: createDefaultBatter(`${name} Batter 1`),
-          nonStriker: createDefaultBatter(`${name} Batter 2`),
-          nextBatsmanNumber: 3
-        },
-        bowling: {
-          currentBowler: "Bowler 1",
-          bowlers: { "Bowler 1": createDefaultBowler("Bowler 1") }
-        }
-      };
-    }
-
-    function normalizeBatter(player, fallbackName) {
-      return {
-        name: cleanName(player?.name, fallbackName),
-        runs: Math.max(0, toSafeInt(player?.runs, 0)),
-        balls: Math.max(0, toSafeInt(player?.balls, 0))
-      };
-    }
-
-    function normalizeBowler(bowler, fallbackName) {
-      return {
-        name: cleanName(bowler?.name, fallbackName),
-        balls: Math.max(0, toSafeInt(bowler?.balls, 0)),
-        runs: Math.max(0, toSafeInt(bowler?.runs, 0)),
-        wickets: Math.max(0, toSafeInt(bowler?.wickets, 0))
-      };
-    }
-
-    function normalizeTeam(team, fallbackName) {
-      const base = createDefaultTeam(fallbackName);
-      const name = cleanName(team?.name, fallbackName, 60);
-      const runs = Math.max(0, toSafeInt(team?.runs, 0));
-      const wickets = Math.min(MAX_WICKETS, Math.max(0, toSafeInt(team?.wickets, 0)));
-      const legalBallsRaw = toSafeInt(team?.legalBalls, -1);
-      const legalBalls = legalBallsRaw >= 0 ? legalBallsRaw : overToBalls(team?.over);
-
-      const extrasWide = Math.max(0, toSafeInt(team?.extras?.wide, 0));
-      const extrasNoBall = Math.max(0, toSafeInt(team?.extras?.noBall, 0));
-      const extrasBye = Math.max(0, toSafeInt(team?.extras?.bye, 0));
-
-      const striker = normalizeBatter(team?.batting?.striker, `${name} Batter 1`);
-      const nonStriker = normalizeBatter(team?.batting?.nonStriker, `${name} Batter 2`);
-      if (striker.name === nonStriker.name) {
-        nonStriker.name = `${nonStriker.name} (NS)`;
-      }
-
-      const nextBatsmanNumber = Math.max(3, toSafeInt(team?.batting?.nextBatsmanNumber, 3));
-
-      const bowlers = {};
-      const sourceBowlers =
-        typeof team?.bowling?.bowlers === "object" && team?.bowling?.bowlers !== null
-          ? team.bowling.bowlers
-          : {};
-      for (const [bowlerName, bowlerData] of Object.entries(sourceBowlers)) {
-        const key = cleanName(bowlerName, "", 48);
-        if (!key) continue;
-        bowlers[key] = normalizeBowler(bowlerData, key);
-      }
-
-      const currentBowler = cleanName(team?.bowling?.currentBowler, "Bowler 1", 48);
-      if (!bowlers[currentBowler]) {
-        bowlers[currentBowler] = createDefaultBowler(currentBowler);
-      }
-
-      return {
-        ...base,
-        name,
-        runs,
-        wickets,
-        legalBalls,
-        over: ballsToOverNumber(legalBalls),
-        extras: {
-          wide: extrasWide,
-          noBall: extrasNoBall,
-          bye: extrasBye,
-          total: extrasWide + extrasNoBall + extrasBye
-        },
-        batting: {
-          striker,
-          nonStriker,
-          nextBatsmanNumber
-        },
-        bowling: {
-          currentBowler,
-          bowlers
-        }
-      };
-    }
-
-    function normalizeMatch(state) {
-      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
-      return {
-        activeTeam,
-        winner: state?.winner === "teamB" ? "teamB" : state?.winner === "teamA" ? "teamA" : null,
-        teamA: normalizeTeam(state?.teamA, "Team A"),
-        teamB: normalizeTeam(state?.teamB, "Team B")
-      };
-    }
-
-    let match = normalizeMatch({
+    let match = {
       activeTeam: "teamA",
-      teamA: { name: "Team A" },
-      teamB: { name: "Team B" }
-    });
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
+    };
 
     let history = [];
-    let viewerCount = 0;
 
     async function fetchJson(url, options) {
       const res = await fetch(url, options);
@@ -803,7 +538,7 @@
 
       socket = io({
         transports: ["websocket", "polling"],
-        auth: token ? { adminToken: token, role: "admin" } : { role: "admin" }
+        auth: token ? { adminToken: token } : undefined
       });
 
       socket.on("connect", () => {
@@ -826,23 +561,12 @@
         }
       });
 
+      // fallback if an older server emits scoreUpdate only
       socket.on("scoreUpdate", (data) => {
-        const current = match.activeTeam === "teamB" ? "teamB" : "teamA";
-        const merged = {
-          ...match[current],
-          runs: data?.runs,
-          wickets: data?.wickets,
-          over: data?.over
-        };
-        match[current] = normalizeTeam(merged, current === "teamA" ? "Team A" : "Team B");
+        const t = normalizeTeam(data, match.activeTeam === "teamB" ? "Team B" : "Team A");
+        if (match.activeTeam === "teamB") match.teamB = t;
+        else match.teamA = t;
         render();
-      });
-
-      socket.on("viewerCount", (payload) => {
-        const count = Number(payload?.count ?? 0);
-        viewerCount = Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
-        const el = document.getElementById("viewerCountAdmin");
-        if (el) el.innerText = String(viewerCount);
       });
     }
 
@@ -850,7 +574,7 @@
       const confirmed = window.confirm("This will permanently delete ALL recorded matches. Continue?");
       if (!confirmed) return;
       try {
-        setStatus("Clearing match history...", "");
+        setStatus("Clearing match history…", "");
         await fetchJson("/api/matches", { method: "DELETE" });
         history = [];
         renderHistory();
@@ -870,9 +594,26 @@
         .replaceAll("'", "&#39;");
     }
 
-    function formatStrikeRate(runs, balls) {
-      if (!balls) return "0.00";
-      return ((runs * 100) / balls).toFixed(2);
+    function normalizeTeam(team, fallbackName) {
+      const name = String(team?.name ?? fallbackName);
+      const runs = Number(team?.runs ?? 0);
+      const wickets = Number(team?.wickets ?? 0);
+      const over = normalizeOver(team?.over);
+      return {
+        name: name || fallbackName,
+        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+        over
+      };
+    }
+
+    function normalizeMatch(state) {
+      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
+      return {
+        activeTeam,
+        teamA: normalizeTeam(state?.teamA, "Team A"),
+        teamB: normalizeTeam(state?.teamB, "Team B")
+      };
     }
 
     function setStatus(message, kind) {
@@ -885,58 +626,15 @@
       return match.activeTeam === "teamB" ? match.teamB : match.teamA;
     }
 
-    function ensureCurrentBowler(team) {
-      if (!team.bowling || typeof team.bowling !== "object") {
-        team.bowling = { currentBowler: "Bowler 1", bowlers: {} };
-      }
-      if (!team.bowling.bowlers || typeof team.bowling.bowlers !== "object") {
-        team.bowling.bowlers = {};
-      }
-
-      const key = cleanName(team.bowling.currentBowler, "Bowler 1", 48);
-      team.bowling.currentBowler = key;
-      if (!team.bowling.bowlers[key]) {
-        team.bowling.bowlers[key] = createDefaultBowler(key);
-      }
-      return team.bowling.bowlers[key];
-    }
-
-    function rotateStrikeCore(team) {
-      const prev = team.batting.striker;
-      team.batting.striker = team.batting.nonStriker;
-      team.batting.nonStriker = prev;
-    }
-
-    function updateOverFromBalls(team) {
-      team.over = ballsToOverNumber(team.legalBalls);
-    }
-
-    function registerLegalDelivery(team) {
-      const bowler = ensureCurrentBowler(team);
-      bowler.balls += 1;
-      team.legalBalls += 1;
-      updateOverFromBalls(team);
-
-      if (team.legalBalls > 0 && team.legalBalls % 6 === 0) {
-        rotateStrikeCore(team);
-      }
+    function setActiveTeam(teamKey) {
+      match.activeTeam = teamKey === "teamB" ? "teamB" : "teamA";
+      pushMatch();
+      render();
     }
 
     function pushMatch() {
       if (!socket) return;
       socket.emit("updateMatch", match);
-    }
-
-    function commitMatch(message, kind = "ok") {
-      match = normalizeMatch(match);
-      pushMatch();
-      render();
-      setStatus(message, kind);
-    }
-
-    function setActiveTeam(teamKey) {
-      match.activeTeam = teamKey === "teamB" ? "teamB" : "teamA";
-      commitMatch("Switched active innings.", "");
     }
 
     function render() {
@@ -948,6 +646,7 @@
       document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
       document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
 
+      // keep inputs + labels in sync
       const aInput = document.getElementById("teamANameInput");
       const bInput = document.getElementById("teamBNameInput");
       if (document.activeElement !== aInput) aInput.value = a.name;
@@ -967,48 +666,9 @@
       document.getElementById("teamABtn").className = aActive ? "on" : "";
       document.getElementById("teamBBtn").className = aActive ? "" : "on";
 
-      const viewerCountEl = document.getElementById("viewerCountAdmin");
-      if (viewerCountEl) viewerCountEl.innerText = String(viewerCount);
-
       const t = getActiveTeam();
-      const striker = t.batting.striker;
-      const nonStriker = t.batting.nonStriker;
-      const currentBowler = ensureCurrentBowler(t);
-
       document.getElementById("score").innerText = `${t.runs}/${t.wickets} (${formatOver(t.over)})`;
-      document.getElementById("strikerName").innerText = `${striker.name} *`;
-      document.getElementById("nonStrikerName").innerText = nonStriker.name;
-      document.getElementById("strikerStats").innerText = `${striker.runs} (${striker.balls}) SR ${formatStrikeRate(striker.runs, striker.balls)}`;
-      document.getElementById("nonStrikerStats").innerText = `${nonStriker.runs} (${nonStriker.balls}) SR ${formatStrikeRate(nonStriker.runs, nonStriker.balls)}`;
-      document.getElementById("extrasSummary").innerText = `${t.extras.total} (${t.extras.wide}/${t.extras.noBall}/${t.extras.bye})`;
-
-      const bowlerSelect = document.getElementById("bowlerSelect");
-      const bowlers = Object.values(t.bowling.bowlers).sort((x, y) => x.name.localeCompare(y.name));
-      bowlerSelect.innerHTML = "";
-      for (const bowler of bowlers) {
-        const opt = document.createElement("option");
-        opt.value = bowler.name;
-        opt.textContent = bowler.name;
-        bowlerSelect.appendChild(opt);
-      }
-      bowlerSelect.value = t.bowling.currentBowler;
-
-      document.getElementById("currentBowlerName").innerText = currentBowler.name;
-      document.getElementById("currentBowlerStats").innerText = `${formatOver(ballsToOverNumber(currentBowler.balls))} overs • ${currentBowler.runs} runs • ${currentBowler.wickets} wickets`;
-
-      const rankedBowlers = [...bowlers].sort(
-        (x, y) => y.balls - x.balls || y.wickets - x.wickets || x.name.localeCompare(y.name)
-      );
-
-      const bowlerListHtml = rankedBowlers
-        .map((bowler) => {
-          const marker = bowler.name === t.bowling.currentBowler ? " (current)" : "";
-          return `<div class="listItem"><span>${escapeHtml(bowler.name + marker)}</span><b>${formatOver(ballsToOverNumber(bowler.balls))} • ${bowler.runs}R • ${bowler.wickets}W</b></div>`;
-        })
-        .join("");
-
-      document.getElementById("bowlerList").innerHTML =
-        bowlerListHtml || `<div class="pill" style="width: fit-content;">No bowling data.</div>`;
+      syncInputsFromTeam();
     }
 
     let saveNamesTimer = null;
@@ -1016,7 +676,6 @@
     function onTeamNameInput() {
       match.teamA.name = String(document.getElementById("teamANameInput").value ?? "").trim();
       match.teamB.name = String(document.getElementById("teamBNameInput").value ?? "").trim();
-      match = normalizeMatch(match);
       pushMatch();
       render();
       if (saveNamesTimer) window.clearTimeout(saveNamesTimer);
@@ -1097,120 +756,68 @@
       }
     }
 
-    function scoreRuns(run) {
-      const validRuns = [1, 2, 3, 4, 5, 6];
-      if (!validRuns.includes(run)) return;
+    function syncInputsFromTeam() {
+      const runsInput = document.getElementById("runsInput");
+      const wicketsInput = document.getElementById("wicketsInput");
+      const overInput = document.getElementById("overInput");
 
       const t = getActiveTeam();
-      if (t.wickets >= MAX_WICKETS) {
-        setStatus("Innings is already all out.", "err");
-        return;
-      }
+      if (document.activeElement !== runsInput) runsInput.value = String(t.runs ?? 0);
+      if (document.activeElement !== wicketsInput) wicketsInput.value = String(t.wickets ?? 0);
+      if (document.activeElement !== overInput) overInput.value = formatOver(t.over ?? 0);
+    }
 
-      const bowler = ensureCurrentBowler(t);
+    function hit(run) {
+      const t = getActiveTeam();
       t.runs += run;
-      bowler.runs += run;
-      t.batting.striker.runs += run;
-      t.batting.striker.balls += 1;
-
-      if (run % 2 === 1) {
-        rotateStrikeCore(t);
-      }
-
-      registerLegalDelivery(t);
-      commitMatch(`Added ${run} run${run === 1 ? "" : "s"}.`);
+      pushMatch();
+      render();
     }
 
-    function addExtra(type) {
-      const validTypes = ["wide", "noBall", "bye"];
-      if (!validTypes.includes(type)) return;
-
+    function ball_count() {
       const t = getActiveTeam();
-      if (t.wickets >= MAX_WICKETS) {
-        setStatus("Innings is already all out.", "err");
-        return;
-      }
-
-      t.runs += 1;
-      t.extras[type] += 1;
-      t.extras.total += 1;
-
-      if (type === "wide" || type === "noBall") {
-        const bowler = ensureCurrentBowler(t);
-        bowler.runs += 1;
-        commitMatch(`Added 1 ${type === "noBall" ? "no-ball" : type}.`);
-        return;
-      }
-
-      t.batting.striker.balls += 1;
-      rotateStrikeCore(t);
-      registerLegalDelivery(t);
-      commitMatch("Added 1 bye.");
+      const nextBalls = overToBalls(t.over) + 1;
+      t.over = ballsToOverNumber(nextBalls);
+      pushMatch();
+      render();
     }
 
-    function handleWicket() {
-      const t = getActiveTeam();
-      if (t.wickets >= MAX_WICKETS) {
-        setStatus("Innings is already all out.", "err");
+    function pushScore() {
+      const runsVal = Number.parseInt(document.getElementById("runsInput").value, 10);
+      const wicketsVal = Number.parseInt(document.getElementById("wicketsInput").value, 10);
+      const overVal = document.getElementById("overInput").value.trim();
+
+      if (!Number.isFinite(runsVal) || runsVal < 0) return;
+      if (!Number.isFinite(wicketsVal) || wicketsVal < 0) return;
+      const overNum = parseOverInput(overVal);
+      if (overNum === null) {
+        alert("Over must be like 12.3 (balls 0-5)");
         return;
       }
 
-      const bowler = ensureCurrentBowler(t);
+      const t = getActiveTeam();
+      t.runs = runsVal;
+      t.wickets = wicketsVal;
+      t.over = normalizeOver(overNum);
+      pushMatch();
+      render();
+    }
+
+    function wicket() {
+      const t = getActiveTeam();
       t.wickets += 1;
-      bowler.wickets += 1;
-      t.batting.striker.balls += 1;
-
-      if (t.wickets < MAX_WICKETS) {
-        const nextNo = t.batting.nextBatsmanNumber;
-        t.batting.striker = createDefaultBatter(`${t.name} Batter ${nextNo}`);
-        t.batting.nextBatsmanNumber = nextNo + 1;
-      }
-
-      registerLegalDelivery(t);
-      const msg = t.wickets >= MAX_WICKETS ? "Wicket! Innings is all out." : "Wicket added.";
-      commitMatch(msg);
+      pushMatch();
+      render();
     }
 
-    function rotateStrike() {
+    function resetActiveTeam() {
       const t = getActiveTeam();
-      rotateStrikeCore(t);
-      commitMatch("Strike rotated manually.");
-    }
-
-    function resetActiveInnings() {
-      const confirmed = window.confirm("Reset the active innings score, batsmen, extras, and bowling stats?");
-      if (!confirmed) return;
-
-      const key = match.activeTeam === "teamB" ? "teamB" : "teamA";
-      const teamName = key === "teamA" ? match.teamA.name : match.teamB.name;
-      match[key] = normalizeTeam({ name: teamName }, teamName || (key === "teamA" ? "Team A" : "Team B"));
-      commitMatch("Active innings reset.");
-    }
-
-    function setCurrentBowler() {
-      const selectValue = String(document.getElementById("bowlerSelect").value ?? "").trim();
-      const newValue = String(document.getElementById("newBowlerInput").value ?? "").trim();
-      const targetName = cleanName(newValue || selectValue, "", 48);
-
-      if (!targetName) {
-        setStatus("Select or enter a bowler name.", "err");
-        return;
-      }
-
-      const t = getActiveTeam();
-      if (!t.bowling.bowlers[targetName]) {
-        t.bowling.bowlers[targetName] = createDefaultBowler(targetName);
-      }
-      t.bowling.currentBowler = targetName;
-      document.getElementById("newBowlerInput").value = "";
-      commitMatch(`Current bowler set to ${targetName}.`);
-    }
-
-    function incrementBowlerWicket() {
-      const t = getActiveTeam();
-      const bowler = ensureCurrentBowler(t);
-      bowler.wickets += 1;
-      commitMatch("Incremented current bowler wicket count.");
+      t.runs = 0;
+      t.wickets = 0;
+      t.over = 0.0;
+      setStatus("Reset active team.", "ok");
+      pushMatch();
+      render();
     }
 
     async function recordMatch() {
@@ -1290,5 +897,4 @@
     loadHistory();
   </script>
 </body>
-
 </html>

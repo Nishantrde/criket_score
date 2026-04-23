@@ -217,36 +217,36 @@
     .controls {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 6px;
+      gap: 8px;
       margin-top: 12px;
-      justify-items: stretch;
+      justify-items: center;
     }
 
     .controls button {
-      width: 100%;
+      width: clamp(54px, 10vw, 68px);
       aspect-ratio: 1;
       height: auto;
-      border-radius: 14px;
-      padding: 8px 6px;
+      border-radius: 12px;
+      padding: 5px 4px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
       gap: 2px;
-      line-height: 1;
+      line-height: 0.98;
       white-space: normal;
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .controls button .btnTop {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 800;
       letter-spacing: -0.2px;
     }
 
     .controls button .btnBottom {
-      font-size: 8px;
+      font-size: 9px;
       font-weight: 750;
       letter-spacing: 0.3px;
     }
@@ -302,7 +302,8 @@
       .score { font-size: 36px; }
       .editor { grid-template-columns: 1fr; }
       .controls button {
-        padding: 6px 4px;
+        width: clamp(48px, 14vw, 58px);
+        padding: 4px 3px;
         font-size: 9px;
       }
 
@@ -311,7 +312,7 @@
       }
 
       .controls button .btnBottom {
-        font-size: 7px;
+        font-size: 8px;
       }
     }
 

@@ -13,7 +13,8 @@ const {
   getTeamNames,
   setTeamNames,
   listMatches,
-  clearMatches
+  clearMatches,
+  deleteMatch
 } = require("./db");
 
 const PORT = Number.parseInt(process.env.PORT, 10) || 3131;
@@ -288,6 +289,21 @@ app.delete("/api/matches", ensureAdminBasic, async (req, res) => {
   }
 });
 
+app.delete("/api/matches/:id", ensureAdminBasic, async (req, res) => {
+  try {
+    const removed = await deleteMatch(req.params.id);
+    if (!removed.deleted) {
+      return res.status(404).json({ ok: false, error: "Match not found." });
+    }
+
+    emitMatchesUpdate();
+    return res.json({ ok: true, deleted: removed.deleted });
+  } catch (err) {
+    console.error("Delete match failed", err);
+    return res.status(500).json({ ok: false, error: "Failed to delete match." });
+  }
+});
+
 function isAdminSocket(socket) {
   const token = socket.handshake?.auth?.adminToken;
   if (isValidAdminSocketToken(token)) return true;
@@ -409,6 +425,33 @@ io.on("connection", (socket) => {
     } catch (err) {
       console.error("Socket recordMatch failed", err);
       if (typeof ack === "function") ack({ ok: false, error: "Failed to record match." });
+    }
+  });
+
+  socket.on("deleteMatch", async (payload, ack) => {
+    try {
+      if (!isAdminSocket(socket)) {
+        if (typeof ack === "function") ack({ ok: false, error: "Admin authentication required." });
+        return;
+      }
+
+      const matchId = String(payload?.id ?? payload ?? "").trim();
+      if (!matchId) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match id is required." });
+        return;
+      }
+
+      const removed = await deleteMatch(matchId);
+      if (!removed.deleted) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match not found." });
+        return;
+      }
+
+      emitMatchesUpdate();
+      if (typeof ack === "function") ack({ ok: true, deleted: removed.deleted });
+    } catch (err) {
+      console.error("Socket deleteMatch failed", err);
+      if (typeof ack === "function") ack({ ok: false, error: "Failed to delete match." });
     }
   });
 

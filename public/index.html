@@ -216,8 +216,55 @@
 
     .controls {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 12px;
+      justify-items: stretch;
+    }
+
+    .controls button {
+      width: 100%;
+      aspect-ratio: 1;
+      height: auto;
+      border-radius: 14px;
+      padding: 8px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 2px;
+      line-height: 1;
+      white-space: normal;
+      font-size: 10px;
+    }
+
+    .controls button .btnTop {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+    }
+
+    .controls button .btnBottom {
+      font-size: 8px;
+      font-weight: 750;
+      letter-spacing: 0.3px;
+    }
+
+    .btnExtra {
+      background: #eef8f2;
+      border-color: rgba(0,0,0,0.18);
+    }
+
+    .histActions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .dangerBtn {
+      border-color: rgba(0,0,0,0.28);
+      background: #fff7f7;
+      color: #7a1717;
     }
 
     .editor {
@@ -251,9 +298,21 @@
     }
 
     @media (max-width: 480px) {
-      .controls { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
       .score { font-size: 36px; }
       .editor { grid-template-columns: 1fr; }
+      .controls button {
+        padding: 6px 4px;
+        font-size: 9px;
+      }
+
+      .controls button .btnTop {
+        font-size: 13px;
+      }
+
+      .controls button .btnBottom {
+        font-size: 7px;
+      }
     }
 
     button {
@@ -273,6 +332,7 @@
     .btnPrimary {
       background: var(--accent);
       border-color: rgba(0,0,0,0.12);
+      font-size: large;
     }
 
     .btnWarn {
@@ -400,15 +460,18 @@
         </div>
 
         <div class="controls">
-          <button class="btnPrimary" onclick="hit(1)">+1 Run</button>
-          <button class="btnPrimary" onclick="hit(2)">+2 Run</button>
-          <button class="btnPrimary" onclick="hit(3)">+3 Run</button>
-          <button class="btnPrimary" onclick="hit(4)">FOUR</button>
-          <button class="btnPrimary" onclick="hit(5)">+5 Run</button>
-          <button class="btnPrimary" onclick="hit(6)">SIX</button>
-          <button class="btnWarn" onclick="wicket()">WICKET</button>
-          <button class="btnWarn" onclick="ball_count()">+1 BALL</button>
-          <button class="btnWarn" onclick="resetActiveTeam()">RESET TEAM</button>
+          <button class="btnPrimary" onclick="hit(1)" title="+1 Run"><span class="btnTop">+1</span><span class="btnBottom">RUN</span></button>
+          <button class="btnPrimary" onclick="hit(2)" title="+2 Run"><span class="btnTop">+2</span><span class="btnBottom">RUN</span></button>
+          <button class="btnPrimary" onclick="hit(3)" title="+3 Run"><span class="btnTop">+3</span><span class="btnBottom">RUN</span></button>
+          <button class="btnPrimary" onclick="hit(4)" title="Four"><span class="btnTop">4</span><span class="btnBottom">RUN</span></button>
+          <button class="btnPrimary" onclick="hit(5)" title="+5 Run"><span class="btnTop">+5</span><span class="btnBottom">RUN</span></button>
+          <button class="btnPrimary" onclick="hit(6)" title="Six"><span class="btnTop">6</span><span class="btnBottom">RUN</span></button>
+          <button class="btnExtra" onclick="wide()" title="Wide +1"><span class="btnTop">WIDE</span><span class="btnBottom">+1</span></button>
+          <button class="btnExtra" onclick="noBall()" title="No Ball +1"><span class="btnTop">NO</span><span class="btnBottom">BALL</span></button>
+          <button class="btnExtra" onclick="bye()" title="Bye +1"><span class="btnTop">BYE</span><span class="btnBottom">+1</span></button>
+          <button class="btnWarn" onclick="wicket()" title="Wicket"><span class="btnTop">WKT</span><span class="btnBottom">OUT</span></button>
+          <button class="btnWarn" onclick="ball_count()" title="Add One Ball"><span class="btnTop">+1</span><span class="btnBottom">BALL</span></button>
+          <button class="btnWarn" onclick="resetActiveTeam()" title="Reset Team"><span class="btnTop">RESET</span><span class="btnBottom">TEAM</span></button>
         </div>
 
         <div class="editor">
@@ -452,7 +515,6 @@
             <div class="score" style="font-size: 22px;">Recorded Matches</div>
           </div>
           <div class="meta">
-            <button class="smallBtn" onclick="clearHistory()">Clear</button>
             <button class="smallBtn" onclick="loadHistory()">Refresh</button>
           </div>
         </div>
@@ -568,21 +630,6 @@
         else match.teamA = t;
         render();
       });
-    }
-
-    async function clearHistory() {
-      const confirmed = window.confirm("This will permanently delete ALL recorded matches. Continue?");
-      if (!confirmed) return;
-      try {
-        setStatus("Clearing match history…", "");
-        await fetchJson("/api/matches", { method: "DELETE" });
-        history = [];
-        renderHistory();
-        setStatus("Match history cleared.", "ok");
-      } catch (err) {
-        console.error(err);
-        setStatus(err.message || "Failed to clear match history.", "err");
-      }
     }
 
     function escapeHtml(s) {
@@ -722,6 +769,7 @@
         .map((m) => {
           const created = m?.created_at ? new Date(m.created_at).toLocaleString() : "";
           const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
+          const recordId = String(m?.id ?? "");
           return `
             <div class="histItem">
               <div class="histTop">
@@ -734,10 +782,65 @@
               <div class="histLine">
                 <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
               </div>
+              <div class="histActions">
+                <button class="smallBtn dangerBtn" data-match-id="${escapeHtml(recordId)}" onclick="deleteMatchById(this.dataset.matchId)">Delete</button>
+              </div>
             </div>
           `;
         })
         .join("");
+    }
+
+    async function deleteMatchById(id) {
+      const matchId = String(id ?? "").trim();
+      if (!matchId) {
+        setStatus("Missing match id.", "err");
+        return;
+      }
+
+      const confirmed = window.confirm("Delete this recorded match?");
+      if (!confirmed) return;
+
+      try {
+        if (socket && socket.connected) {
+          const result = await new Promise((resolve, reject) => {
+            socket
+              .timeout(8000)
+              .emit("deleteMatch", { id: matchId }, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+              });
+          });
+
+          if (!result || !result.ok) {
+            setStatus(result?.error || "Failed to delete match.", "err");
+            return;
+          }
+
+          history = Array.isArray(history) ? history.filter((item) => String(item?.id) !== matchId) : [];
+          renderHistory();
+          setStatus("Match deleted.", "ok");
+          return;
+        }
+
+        const res = await fetch(`/api/matches/${encodeURIComponent(matchId)}`, {
+          method: "DELETE",
+          credentials: "same-origin"
+        });
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok || !json.ok) {
+          setStatus(json.error || "Failed to delete match.", "err");
+          return;
+        }
+
+        history = Array.isArray(history) ? history.filter((item) => String(item?.id) !== matchId) : [];
+        renderHistory();
+        setStatus("Match deleted.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to delete match.", "err");
+      }
     }
 
     async function loadHistory() {
@@ -768,16 +871,33 @@
     }
 
     function hit(run) {
-      const t = getActiveTeam();
-      t.runs += run;
-      pushMatch();
-      render();
+      applyDelivery({ runs: run, countsBall: true });
+    }
+
+    function wide() {
+      applyDelivery({ runs: 1, countsBall: false });
+    }
+
+    function noBall() {
+      applyDelivery({ runs: 1, countsBall: false });
+    }
+
+    function bye() {
+      applyDelivery({ runs: 1, countsBall: true });
     }
 
     function ball_count() {
+      applyDelivery({ countsBall: true });
+    }
+
+    function applyDelivery({ runs = 0, wickets = 0, countsBall = true } = {}) {
       const t = getActiveTeam();
-      const nextBalls = overToBalls(t.over) + 1;
-      t.over = ballsToOverNumber(nextBalls);
+      t.runs += runs;
+      t.wickets += wickets;
+      if (countsBall) {
+        const nextBalls = overToBalls(t.over) + 1;
+        t.over = ballsToOverNumber(nextBalls);
+      }
       pushMatch();
       render();
     }
@@ -804,10 +924,7 @@
     }
 
     function wicket() {
-      const t = getActiveTeam();
-      t.wickets += 1;
-      pushMatch();
-      render();
+      applyDelivery({ wickets: 1, countsBall: true });
     }
 
     function resetActiveTeam() {

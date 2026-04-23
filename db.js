@@ -108,11 +108,16 @@ async function clearMatches() {
   return withBackend("clearMatches", (b) => b.clearMatches());
 }
 
+async function deleteMatch(id) {
+  return withBackend("deleteMatch", (b) => b.deleteMatch(id));
+}
+
 module.exports = {
   initDb,
   getTeamNames,
   setTeamNames,
   listMatches,
   insertMatch,
-  clearMatches
+  clearMatches,
+  deleteMatch
 };

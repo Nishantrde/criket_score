@@ -166,6 +166,15 @@ async function clearMatches() {
   return { cleared: res.deletedCount || 0 };
 }
 
+async function deleteMatch(id) {
+  await connectMongo();
+  const matchId = String(id || "").trim();
+  if (!matchId) throw new Error("Valid match id required");
+
+  const res = await Match.deleteOne({ _id: matchId });
+  return { deleted: res.deletedCount || 0 };
+}
+
 async function listAdminEmails() {
   await connectMongo();
   const s = await Settings.findById("global").lean();
@@ -214,6 +223,7 @@ module.exports = {
   setTeamNames,
   listMatches,
   clearMatches,
+  deleteMatch,
   listAdminEmails,
   isAdminEmail,
   addAdminEmail,

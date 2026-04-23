@@ -162,6 +162,16 @@ async function clearMatches() {
   return { cleared: result.changes };
 }
 
+async function deleteMatch(id) {
+  const matchId = Number.parseInt(String(id), 10);
+  if (!Number.isFinite(matchId) || matchId <= 0) {
+    throw new Error("Valid match id required");
+  }
+
+  const result = await run("DELETE FROM matches WHERE id = ?;", [matchId]);
+  return { deleted: result.changes || 0 };
+}
+
 async function listAdminEmails() {
   const rows = await all("SELECT email, created_at FROM admin_emails ORDER BY email ASC;");
   return rows.map((r) => ({ email: String(r.email), createdAt: r.created_at }));
@@ -198,6 +208,7 @@ module.exports = {
   setTeamNames,
   listMatches,
   clearMatches,
+  deleteMatch,
   listAdminEmails,
   isAdminEmail,
   addAdminEmail,

@@ -1,403 +1,436 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mojo Pravah • Live Score</title>
-  <style>
-    :root {
-      --bg: #f2f2f2;
-      --surface: #ffffff;
-      --text: #1f1f1f;
-      --muted: #5a5a5a;
-      --border: #d9d9d9;
-      --accent: #f2c200;
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+require("dotenv").config();
+const crypto = require("crypto");
+
+const app = express();
+const server = http.createServer(app);
+const path = require("path");
+const {
+  initDb,
+  insertMatch,
+  getTeamNames,
+  setTeamNames,
+  listMatches,
+  clearMatches
+} = require("./db");
+
+const PORT = Number.parseInt(process.env.PORT, 10) || 3131;
+
+const io = new Server(server, {
+  // If WebSockets are blocked in production, Socket.IO will fall back to polling (often feels slower).
+  // These settings keep defaults but make connectivity issues easier to spot and help detect dead clients sooner.
+  transports: ["websocket", "polling"],
+  allowUpgrades: true,
+  pingInterval: 10000,
+  pingTimeout: 5000
+});
+
+app.use(express.json());
+
+const ADMIN_USER = String(process.env.ADMIN_USER || "air19818");
+const ADMIN_PASS = String(process.env.ADMIN_PASS || "air19818");
+
+const ADMIN_SOCKET_TOKEN_TTL_MS = 1000 * 60 * 10; // 10 minutes
+const adminSocketTokens = new Map(); // token -> expiresAtMs
+
+function parseBasicAuth(headerValue) {
+  const h = String(headerValue || "");
+  if (!h.toLowerCase().startsWith("basic ")) return null;
+  const b64 = h.slice(6).trim();
+  let decoded = "";
+  try {
+    decoded = Buffer.from(b64, "base64").toString("utf8");
+  } catch {
+    return null;
+  }
+  const idx = decoded.indexOf(":");
+  if (idx < 0) return null;
+  return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
+}
+
+function isValidAdminCreds(user, pass) {
+  return String(user) === ADMIN_USER && String(pass) === ADMIN_PASS;
+}
+
+function ensureAdminBasic(req, res, next) {
+  const creds = parseBasicAuth(req.headers.authorization);
+  if (creds && isValidAdminCreds(creds.user, creds.pass)) return next();
+
+  if (req.path.startsWith("/api/")) {
+    return res.status(401).json({ ok: false, error: "Admin authentication required." });
+  }
+  res.setHeader("WWW-Authenticate", 'Basic realm="Cricket Admin"');
+  return res.status(401).send("Authentication required");
+}
+
+function issueAdminSocketToken() {
+  const token = crypto.randomBytes(24).toString("hex");
+  const expiresAt = Date.now() + ADMIN_SOCKET_TOKEN_TTL_MS;
+  adminSocketTokens.set(token, expiresAt);
+  return { token, expiresAt };
+}
+
+function isValidAdminSocketToken(token) {
+  const t = String(token || "");
+  if (!t) return false;
+  const expiresAt = adminSocketTokens.get(t);
+  if (!expiresAt) return false;
+  if (Date.now() > expiresAt) {
+    adminSocketTokens.delete(t);
+    return false;
+  }
+  return true;
+}
+
+app.get("/admin", ensureAdminBasic, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/client", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "client.html"));
+});
+
+// prevent direct HTML access bypassing the above route guards
+app.get("/index.html", ensureAdminBasic, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+app.get("/client.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "client.html"));
+});
+
+app.get("/", (req, res) => {
+  return res.redirect("/client");
+});
+
+// serve frontend
+app.use(express.static("public"));
+
+let match = {
+  activeTeam: "teamA",
+  winner: null,
+  teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
+  teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
+};
+
+function overToBalls(value) {
+  const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
+  const safe = Number.isFinite(num) && num >= 0 ? num : 0;
+  const overs = Math.floor(safe);
+  const balls = Math.round((safe - overs) * 10);
+  return overs * 6 + Math.max(0, balls);
+}
+
+function ballsToOverNumber(totalBalls) {
+  const safe = Number.isFinite(totalBalls) && totalBalls >= 0 ? Math.floor(totalBalls) : 0;
+  const overs = Math.floor(safe / 6);
+  const balls = safe % 6;
+  return overs + balls / 10;
+}
+
+function normalizeOver(value) {
+  return ballsToOverNumber(overToBalls(value));
+}
+
+function normalizeTeam(team, fallbackName) {
+  const name = String(team?.name ?? fallbackName);
+  const runs = Number(team?.runs ?? 0);
+  const wickets = Number(team?.wickets ?? 0);
+  const over = normalizeOver(team?.over);
+
+  return {
+    name: name || fallbackName,
+    runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+    wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+    over
+  };
+}
+
+function normalizeMatchState(state) {
+  const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
+  return {
+    activeTeam,
+    winner: validateWinner(state?.winner) ? state.winner : null,
+    teamA: normalizeTeam(state?.teamA, "Team A"),
+    teamB: normalizeTeam(state?.teamB, "Team B")
+  };
+}
+
+function validateWinner(winner) {
+  return winner === "teamA" || winner === "teamB";
+}
+
+function cleanTeamName(value, fallback) {
+  const name = String(value ?? "").trim();
+  if (!name) return fallback;
+  return name.slice(0, 60);
+}
+
+function namesChanged(nextMatch) {
+  return (
+    nextMatch?.teamA?.name !== match?.teamA?.name ||
+    nextMatch?.teamB?.name !== match?.teamB?.name
+  );
+}
+
+async function emitMatchesUpdate(target) {
+  try {
+    const matches = await listMatches({ limit: 5000 });
+    if (target) target.emit("matchesUpdate", matches);
+    else io.emit("matchesUpdate", matches);
+  } catch (err) {
+    console.error("Failed to emit matchesUpdate", err);
+  }
+}
+
+app.get("/api/matches", async (req, res) => {
+  try {
+    const limit = Number.parseInt(req.query?.limit, 10);
+    const matches = await listMatches({ limit: Number.isFinite(limit) ? limit : 5000 });
+    return res.json({ ok: true, matches });
+  } catch (err) {
+    console.error("List matches failed", err);
+    return res.status(500).json({ ok: false, error: "Failed to load match history." });
+  }
+});
+
+app.get("/api/admin/socket-token", ensureAdminBasic, (req, res) => {
+  const issued = issueAdminSocketToken();
+  return res.json({ ok: true, token: issued.token, expiresAt: issued.expiresAt });
+});
+
+app.put("/api/teams", ensureAdminBasic, async (req, res) => {
+  try {
+    const teamAName = cleanTeamName(req.body?.teamAName, match.teamA.name);
+    const teamBName = cleanTeamName(req.body?.teamBName, match.teamB.name);
+
+    if (!teamAName || !teamBName) {
+      return res.status(400).json({ ok: false, error: "Both team names are required." });
     }
 
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-
-    .wrap {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 24px 16px 40px;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      width: fit-content;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 0.2px;
-      margin-bottom: 10px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--accent);
-      border: 1px solid rgba(0,0,0,0.12);
-      flex: 0 0 auto;
-    }
-
-    h1 {
-      margin: 0 0 6px;
-      font-size: 22px;
-      line-height: 1.2;
-    }
-
-    .sub {
-      margin: 0 0 16px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    @media (max-width: 860px) {
-      .grid { grid-template-columns: 1fr; }
-    }
-
-    .teamCard {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-    }
-
-    .teamCard.active {
-      border-color: rgba(0,0,0,0.25);
-      box-shadow: 0 0 0 3px rgba(242, 194, 0, 0.35);
-    }
-
-    .teamHead {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
-    }
-
-    .teamName {
-      font-weight: 850;
-      letter-spacing: -0.3px;
-    }
-
-    .label {
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-    }
-
-    .score {
-      margin: 8px 0 10px;
-      font-size: 52px;
-      font-weight: 800;
-      letter-spacing: -0.8px;
-    }
-
-    .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .pill {
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--bg);
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-
-    @media (max-width: 480px) {
-      .score { font-size: 44px; }
-    }
-
-    .hist {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .histItem {
-      border: 1px solid var(--border);
-      background: var(--bg);
-      border-radius: 12px;
-      padding: 10px 12px;
-      display: grid;
-      gap: 6px;
-    }
-
-    .histTop {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .histLine {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      font-weight: 750;
-    }
-
-    .histLine span {
-      color: var(--muted);
-      font-weight: 650;
-    }
-
-    .titleRow {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 18px;
-      padding-top: 14px;
-      border-top: 1px solid var(--border);
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
-    <h1>Live Cricket Score</h1>
-    <p class="sub">Audience view (auto-updates)</p>
-
-    <div class="grid">
-      <section class="teamCard" id="teamABox">
-        <div class="teamHead">
-          <div>
-            <div class="label">Team</div>
-            <div class="teamName" id="teamAName">Team A</div>
-          </div>
-          <span class="pill" id="teamAActive" style="display:none;">Batting</span>
-        </div>
-        <div class="label">Score</div>
-        <div class="score" id="teamAScore">0/0 (0.0)</div>
-      </section>
-
-      <section class="teamCard" id="teamBBox">
-        <div class="teamHead">
-          <div>
-            <div class="label">Team</div>
-            <div class="teamName" id="teamBName">Team B</div>
-          </div>
-          <span class="pill" id="teamBActive" style="display:none;">Batting</span>
-        </div>
-        <div class="label">Score</div>
-        <div class="score" id="teamBScore">0/0 (0.0)</div>
-      </section>
-    </div>
-
-    <div class="row" style="margin-top: 12px;">
-      <span class="pill">Game: Cricket</span>
-      <span class="pill">Event: Mojo Pravah (Mojo Hostel)</span>
-    </div>
-
-    <div class="card" style="margin-top: 14px;">
-      <div class="titleRow">
-        <div>
-          <div class="label">History</div>
-          <div style="font-weight: 850; font-size: 18px;">Recorded Matches</div>
-        </div>
-        <button onclick="loadHistory()" style="border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-weight: 650; cursor: pointer;">Refresh</button>
-      </div>
-      <div id="history" class="hist"></div>
-    </div>
-  </div>
-
-  
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io({ transports: ["websocket", "polling"] });
-
-    socket.on("connect", () => {
-      console.log("socket connected", socket.id, "transport:", socket.io.engine.transport.name);
+    await setTeamNames({ teamAName, teamBName });
+    match = normalizeMatchState({
+      ...match,
+      teamA: { ...match.teamA, name: teamAName },
+      teamB: { ...match.teamB, name: teamBName }
     });
+    io.emit("matchUpdate", match);
+    io.emit("scoreUpdate", match[match.activeTeam]);
+    return res.json({ ok: true, teamAName, teamBName });
+  } catch (err) {
+    console.error("Update team names failed", err);
+    return res.status(500).json({ ok: false, error: "Failed to update team names." });
+  }
+});
 
-    socket.io.engine.on("upgrade", (transport) => {
-      console.log("transport upgraded to", transport.name);
-    });
-
-    function overToBalls(value) {
-      const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
-      const safe = Number.isFinite(num) && num >= 0 ? num : 0;
-      const overs = Math.floor(safe);
-      const balls = Math.round((safe - overs) * 10);
-      return overs * 6 + Math.max(0, balls);
+app.post("/api/matches", async (req, res) => {
+  try {
+    // protect recording a match
+    const creds = parseBasicAuth(req.headers.authorization);
+    if (!creds || !isValidAdminCreds(creds.user, creds.pass)) {
+      return res.status(401).json({ ok: false, error: "Admin authentication required." });
     }
 
-    function ballsToOverNumber(totalBalls) {
-      const safe = Number.isFinite(totalBalls) && totalBalls >= 0 ? Math.floor(totalBalls) : 0;
-      const overs = Math.floor(safe / 6);
-      const balls = safe % 6;
-      return overs + balls / 10;
+    const winner = req.body?.winner;
+    if (!validateWinner(winner)) {
+      return res.status(400).json({ ok: false, error: "Winner is required (teamA/teamB)." });
     }
 
-    function normalizeOver(value) {
-      return ballsToOverNumber(overToBalls(value));
+    const incomingMatch = normalizeMatchState(req.body?.match ?? req.body);
+
+    // Basic completeness validation
+    if (!incomingMatch.teamA.name || !incomingMatch.teamB.name) {
+      return res.status(400).json({ ok: false, error: "Team names are required." });
     }
 
-    function formatOver(value) {
-      return normalizeOver(value).toFixed(1);
+    if (!Number.isFinite(incomingMatch.teamA.runs) || !Number.isFinite(incomingMatch.teamB.runs)) {
+      return res.status(400).json({ ok: false, error: "Match data is incomplete." });
     }
 
-    let history = [];
-
-    function escapeHtml(s) {
-      return String(s ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
+    if (
+      !Number.isFinite(incomingMatch.teamA.wickets) ||
+      !Number.isFinite(incomingMatch.teamB.wickets) ||
+      !Number.isFinite(incomingMatch.teamA.over) ||
+      !Number.isFinite(incomingMatch.teamB.over)
+    ) {
+      return res.status(400).json({ ok: false, error: "Match data is incomplete." });
     }
 
-    function renderHistory() {
-      const box = document.getElementById("history");
-      if (!Array.isArray(history) || history.length === 0) {
-        box.innerHTML = `<div class="pill" style="width: fit-content;">No matches recorded yet.</div>`;
+    if (
+      incomingMatch.teamA.runs < 0 ||
+      incomingMatch.teamB.runs < 0 ||
+      incomingMatch.teamA.wickets < 0 ||
+      incomingMatch.teamB.wickets < 0 ||
+      incomingMatch.teamA.over < 0 ||
+      incomingMatch.teamB.over < 0
+    ) {
+      return res.status(400).json({ ok: false, error: "Match data is invalid." });
+    }
+
+    const saved = await insertMatch({ match: incomingMatch, winner });
+    emitMatchesUpdate();
+    return res.json({ ok: true, id: saved.id, createdAt: saved.createdAt });
+  } catch (err) {
+    console.error("Record match failed", err);
+    return res.status(500).json({ ok: false, error: "Failed to record match." });
+  }
+});
+
+app.delete("/api/matches", ensureAdminBasic, async (req, res) => {
+  try {
+    await clearMatches();
+    emitMatchesUpdate();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Clear matches failed", err);
+    return res.status(500).json({ ok: false, error: "Failed to clear match history." });
+  }
+});
+
+function isAdminSocket(socket) {
+  const token = socket.handshake?.auth?.adminToken;
+  if (isValidAdminSocketToken(token)) return true;
+
+  const creds = parseBasicAuth(socket.handshake?.headers?.authorization);
+  if (creds && isValidAdminCreds(creds.user, creds.pass)) return true;
+  return false;
+}
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+  console.log("Transport:", socket.conn.transport?.name);
+
+  socket.conn.on("upgrade", (transport) => {
+    console.log("Transport upgraded:", transport?.name);
+  });
+
+  // send current match on join
+  socket.emit("matchUpdate", match);
+
+  emitMatchesUpdate(socket);
+
+  // backward compatibility
+  socket.emit("scoreUpdate", match[match.activeTeam]);
+
+  socket.on("joinMatch", () => {
+    console.log("User joined match");
+  });
+
+  socket.on("updateMatch", async (data) => {
+    try {
+      if (!isAdminSocket(socket)) return;
+
+      const nextMatch = normalizeMatchState(data);
+      const shouldPersistNames = namesChanged(nextMatch);
+      match = nextMatch;
+      io.emit("matchUpdate", match);
+      io.emit("scoreUpdate", match[match.activeTeam]);
+
+      if (shouldPersistNames) {
+        const teamAName = cleanTeamName(match.teamA.name, "Team A");
+        const teamBName = cleanTeamName(match.teamB.name, "Team B");
+        setTeamNames({ teamAName, teamBName }).catch((err) => {
+          console.error("Failed to persist team names", err);
+        });
+      }
+    } catch (err) {
+      console.error("updateMatch failed", err);
+    }
+  });
+
+  // backward compatibility: update active team only
+  socket.on("updateScore", async (data) => {
+    try {
+      if (!isAdminSocket(socket)) return;
+
+      match[match.activeTeam] = normalizeTeam(
+        {
+          ...match[match.activeTeam],
+          runs: data?.runs,
+          wickets: data?.wickets,
+          over: data?.over
+        },
+        match.activeTeam === "teamA" ? "Team A" : "Team B"
+      );
+      io.emit("matchUpdate", match);
+      io.emit("scoreUpdate", match[match.activeTeam]);
+    } catch (err) {
+      console.error("updateScore failed", err);
+    }
+  });
+
+  socket.on("recordMatch", async (payload, ack) => {
+    try {
+      if (!isAdminSocket(socket)) {
+        if (typeof ack === "function") ack({ ok: false, error: "Admin authentication required." });
         return;
       }
 
-      box.innerHTML = history
-        .map((m) => {
-          const created = m?.created_at ? new Date(m.created_at).toLocaleString() : "";
-          const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
-          return `
-            <div class="histItem">
-              <div class="histTop">
-                <div>${escapeHtml(created)}</div>
-                <div>Winner: <b>${escapeHtml(winnerName || "")}</b></div>
-              </div>
-              <div class="histLine">
-                <div>${escapeHtml(m?.teamA_name || "Team A")} <span>${m?.teamA_runs ?? 0}/${m?.teamA_wickets ?? 0} (${formatOver(m?.teamA_overs ?? 0)})</span></div>
-              </div>
-              <div class="histLine">
-                <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
-              </div>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
-    async function loadHistory() {
-      try {
-        const res = await fetch("/api/matches?limit=50");
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.ok) {
-          console.error(json.error || "Failed to load match history");
-          return;
-        }
-        history = Array.isArray(json.matches) ? json.matches : [];
-        renderHistory();
-      } catch (err) {
-        console.error(err);
+      const winner = payload?.winner;
+      if (!validateWinner(winner)) {
+        if (typeof ack === "function") ack({ ok: false, error: "Winner is required (teamA/teamB)." });
+        return;
       }
-    }
 
-    let match = {
-      activeTeam: "teamA",
-      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
-      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
-    };
-
-    function normalizeTeam(team, fallbackName) {
-      const name = String(team?.name ?? fallbackName);
-      const runs = Number(team?.runs ?? 0);
-      const wickets = Number(team?.wickets ?? 0);
-      const over = normalizeOver(team?.over);
-      return {
-        name: name || fallbackName,
-        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
-        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
-        over
-      };
-    }
-
-    function normalizeMatch(state) {
-      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
-      return {
-        activeTeam,
-        teamA: normalizeTeam(state?.teamA, "Team A"),
-        teamB: normalizeTeam(state?.teamB, "Team B")
-      };
-    }
-
-    function render() {
-      const a = match.teamA;
-      const b = match.teamB;
-
-      document.getElementById("teamAName").innerText = a.name;
-      document.getElementById("teamBName").innerText = b.name;
-      document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
-      document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
-
-      const aActive = match.activeTeam === "teamA";
-      document.getElementById("teamAActive").style.display = aActive ? "inline-flex" : "none";
-      document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
-      document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
-      document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
-    }
-
-    socket.on("matchUpdate", (data) => {
-      match = normalizeMatch(data);
-      render();
-    });
-
-    socket.on("matchesUpdate", (rows) => {
-      if (Array.isArray(rows)) {
-        history = rows;
-        renderHistory();
+      const incomingMatch = normalizeMatchState(payload?.match ?? payload);
+      if (!incomingMatch.teamA.name || !incomingMatch.teamB.name) {
+        if (typeof ack === "function") ack({ ok: false, error: "Team names are required." });
+        return;
       }
+
+      if (
+        !Number.isFinite(incomingMatch.teamA.runs) ||
+        !Number.isFinite(incomingMatch.teamB.runs) ||
+        !Number.isFinite(incomingMatch.teamA.wickets) ||
+        !Number.isFinite(incomingMatch.teamB.wickets) ||
+        !Number.isFinite(incomingMatch.teamA.over) ||
+        !Number.isFinite(incomingMatch.teamB.over)
+      ) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match data is incomplete." });
+        return;
+      }
+
+      if (
+        incomingMatch.teamA.runs < 0 ||
+        incomingMatch.teamB.runs < 0 ||
+        incomingMatch.teamA.wickets < 0 ||
+        incomingMatch.teamB.wickets < 0 ||
+        incomingMatch.teamA.over < 0 ||
+        incomingMatch.teamB.over < 0
+      ) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match data is invalid." });
+        return;
+      }
+
+      const saved = await insertMatch({ match: incomingMatch, winner });
+      emitMatchesUpdate();
+      if (typeof ack === "function") ack({ ok: true, id: saved.id, createdAt: saved.createdAt });
+    } catch (err) {
+      console.error("Socket recordMatch failed", err);
+      if (typeof ack === "function") ack({ ok: false, error: "Failed to record match." });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
+
+(async () => {
+  try {
+    await initDb();
+    const names = await getTeamNames();
+    match = normalizeMatchState({
+      ...match,
+      teamA: { ...match.teamA, name: names.teamAName },
+      teamB: { ...match.teamB, name: names.teamBName }
     });
-
-    // fallback: if only scoreUpdate is received, treat it as active team score
-    socket.on("scoreUpdate", (data) => {
-      const t = normalizeTeam(data, match.activeTeam === "teamB" ? "Team B" : "Team A");
-      if (match.activeTeam === "teamB") match.teamB = t;
-      else match.teamA = t;
-      render();
-    });
-
-    loadHistory();
-
-  </script>
-</body>
-</html>
+  } catch (err) {
+    console.error("Failed to init database", err);
+  }
+})();

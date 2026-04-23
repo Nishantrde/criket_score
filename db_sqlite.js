@@ -112,7 +112,7 @@ async function setTeamNames({ teamAName, teamBName }) {
 
 async function listMatches({ limit = 5000 } = {}) {
   const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 5000) : 5000;
-  return all(
+  const rows = await all(
     `SELECT
       id,
       created_at,
@@ -120,11 +120,42 @@ async function listMatches({ limit = 5000 } = {}) {
       winner,
       teamA_name, teamA_runs, teamA_wickets, teamA_overs,
       teamB_name, teamB_runs, teamB_wickets, teamB_overs
+      , raw_json
     FROM matches
     ORDER BY created_at DESC
     LIMIT ?;`,
     [safeLimit]
   );
+
+  return rows.map((row) => {
+    let raw = {};
+    try {
+      raw = JSON.parse(row.raw_json || "{}");
+    } catch {
+      raw = {};
+    }
+
+    const match = raw.match || {};
+    const teamAPlayers = Array.isArray(match.teamA?.players) ? match.teamA.players : [];
+    const teamBPlayers = Array.isArray(match.teamB?.players) ? match.teamB.players : [];
+
+    return {
+      id: row.id,
+      created_at: row.created_at,
+      active_team: row.active_team,
+      winner: row.winner,
+      teamA_name: row.teamA_name,
+      teamA_runs: row.teamA_runs,
+      teamA_wickets: row.teamA_wickets,
+      teamA_overs: row.teamA_overs,
+      teamA_players: teamAPlayers,
+      teamB_name: row.teamB_name,
+      teamB_runs: row.teamB_runs,
+      teamB_wickets: row.teamB_wickets,
+      teamB_overs: row.teamB_overs,
+      teamB_players: teamBPlayers
+    };
+  });
 }
 
 async function insertMatch({ match, winner }) {

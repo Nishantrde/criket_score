@@ -1,4 +1,4 @@
-v<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -181,6 +181,135 @@ v<!DOCTYPE html>
       font-weight: 650;
     }
 
+    .spanAll {
+      grid-column: 1 / -1;
+    }
+
+    .playersHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .playersSummary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .teamRoster {
+      display: grid;
+      gap: 10px;
+      padding-top: 12px;
+    }
+
+    .teamRoster.active {
+      border-color: rgba(0,0,0,0.16);
+      box-shadow: 0 0 0 2px rgba(242, 194, 0, 0.12);
+      border-radius: 12px;
+      padding: 12px;
+      margin: -12px;
+    }
+
+    .teamRoster + .teamRoster {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .teamRosterHeader {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .teamRosterName {
+      font-weight: 850;
+      font-size: 18px;
+      letter-spacing: -0.2px;
+    }
+
+    .teamRosterMeta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .playerList {
+      display: grid;
+      gap: 10px;
+    }
+
+    .playerRow {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) 92px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .playerField {
+      display: grid;
+      gap: 6px;
+    }
+
+    .playerActions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .playerBadge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 11px;
+      font-weight: 750;
+      color: var(--muted);
+    }
+
+    .playerBadge.striker {
+      background: #dff2e1;
+      color: #184d27;
+    }
+
+    .playerBadge.non-striker {
+      background: #e4ecff;
+      color: #244280;
+    }
+
+    .playerBadge.out {
+      background: #fde9e9;
+      color: #8b2323;
+    }
+
+    .playerBadge.waiting {
+      background: #f5f5f5;
+      color: #555;
+    }
+
+    @media (max-width: 640px) {
+      .playerRow {
+        grid-template-columns: 1fr;
+      }
+
+      .playerActions {
+        justify-content: flex-start;
+      }
+    }
+
     .titleRow {
       display: flex;
       align-items: baseline;
@@ -227,6 +356,20 @@ v<!DOCTYPE html>
     <div class="row" style="margin-top: 12px;">
       <span class="pill">Game: Cricket</span>
       <span class="pill">Event: Mojo Pravah (Mojo Hostel)</span>
+    </div>
+
+    <div class="card spanAll" style="margin-top: 14px;">
+      <div class="playersHeader">
+        <div>
+          <div class="label">Players</div>
+          <div style="font-weight: 850; font-size: 18px; margin-top: 4px;" id="playersTitle">Players</div>
+        </div>
+      </div>
+      <div class="playersSummary">
+        <span class="pill" id="strikerSummary">Striker: -</span>
+        <span class="pill" id="nonStrikerSummary">Non-striker: -</span>
+      </div>
+      <div id="playersList" class="playerList"></div>
     </div>
 
     <div class="card" style="margin-top: 14px;">
@@ -277,6 +420,65 @@ v<!DOCTYPE html>
       return normalizeOver(value).toFixed(1);
     }
 
+    const VALID_PLAYER_STATUSES = new Set(["striker", "non-striker", "waiting", "out"]);
+
+    function normalizePlayer(player, index = 0) {
+      const rawName = String(player?.name ?? `Player ${index + 1}`).trim();
+      const statusValue = String(player?.status || "").toLowerCase();
+      const status = VALID_PLAYER_STATUSES.has(statusValue) ? statusValue : "waiting";
+      const runs = Number(player?.runs ?? 0);
+
+      return {
+        id: String(player?.id ?? `player-${index + 1}`),
+        name: rawName || `Player ${index + 1}`,
+        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+        status
+      };
+    }
+
+    function normalizePlayers(players) {
+      const list = Array.isArray(players) ? players.map((player, index) => normalizePlayer(player, index)) : [];
+      let strikerSeen = false;
+      let nonStrikerSeen = false;
+
+      return list.map((player) => {
+        if (player.status === "striker") {
+          if (strikerSeen) return { ...player, status: "waiting" };
+          strikerSeen = true;
+          return player;
+        }
+
+        if (player.status === "non-striker") {
+          if (nonStrikerSeen) return { ...player, status: "waiting" };
+          nonStrikerSeen = true;
+          return player;
+        }
+
+        return player;
+      });
+    }
+
+    function playerStatusLabel(status) {
+      const normalized = String(status || "waiting");
+      if (normalized === "non-striker") return "Non-striker";
+      return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    }
+
+    function renderHistoryPlayers(players) {
+      const list = Array.isArray(players) ? players : [];
+      if (!list.length) {
+        return `<span class="pill">No players</span>`;
+      }
+
+      return list
+        .map((player) => {
+          const status = String(player?.status || "waiting");
+          const label = `${String(player?.name || "Player")} ${Number.isFinite(Number(player?.runs)) ? `(${Number(player.runs)})` : "(0)"}`;
+          return `<span class="playerBadge ${escapeHtml(status)}">${escapeHtml(label)}</span>`;
+        })
+        .join("");
+    }
+
     let history = [];
 
     function escapeHtml(s) {
@@ -299,6 +501,8 @@ v<!DOCTYPE html>
         .map((m) => {
           const created = m?.created_at ? new Date(m.created_at).toLocaleString() : "";
           const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
+          const teamAPlayers = Array.isArray(m?.teamA_players) ? m.teamA_players : [];
+          const teamBPlayers = Array.isArray(m?.teamB_players) ? m.teamB_players : [];
           return `
             <div class="histItem">
               <div class="histTop">
@@ -310,6 +514,18 @@ v<!DOCTYPE html>
               </div>
               <div class="histLine">
                 <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
+              </div>
+              <div class="histLine" style="display:grid; gap:8px;">
+                <div>${escapeHtml(m?.teamA_name || "Team A")} players</div>
+                <div class="playerActions" style="justify-content:flex-start;">
+                  ${renderHistoryPlayers(teamAPlayers)}
+                </div>
+              </div>
+              <div class="histLine" style="display:grid; gap:8px;">
+                <div>${escapeHtml(m?.teamB_name || "Team B")} players</div>
+                <div class="playerActions" style="justify-content:flex-start;">
+                  ${renderHistoryPlayers(teamBPlayers)}
+                </div>
               </div>
             </div>
           `;
@@ -334,8 +550,8 @@ v<!DOCTYPE html>
 
     let match = {
       activeTeam: "teamA",
-      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
-      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [] },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [] }
     };
 
     function normalizeTeam(team, fallbackName) {
@@ -347,7 +563,8 @@ v<!DOCTYPE html>
         name: name || fallbackName,
         runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
         wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
-        over
+        over,
+        players: normalizePlayers(team?.players)
       };
     }
 
@@ -358,6 +575,10 @@ v<!DOCTYPE html>
         teamA: normalizeTeam(state?.teamA, "Team A"),
         teamB: normalizeTeam(state?.teamB, "Team B")
       };
+    }
+
+    function getTeam(teamKey) {
+      return teamKey === "teamB" ? match.teamB : match.teamA;
     }
 
     function render() {
@@ -374,6 +595,72 @@ v<!DOCTYPE html>
       document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
       document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
       document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
+      renderPlayers();
+    }
+
+    function renderTeamRoster(teamKey) {
+      const team = getTeam(teamKey);
+      const isActiveTeam = match.activeTeam === teamKey;
+      const players = Array.isArray(team.players) ? team.players : [];
+
+      const rows = players.length
+        ? players
+            .map((player) => {
+              const badgeLabel = playerStatusLabel(player.status);
+              return `
+                <div class="playerRow">
+                  <div class="playerField">
+                    <div class="label">Player</div>
+                    <div style="font-weight: 800; font-size: 15px;">${escapeHtml(player.name)}</div>
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Runs</div>
+                    <div style="font-size: 16px; font-weight: 850;">${player.runs}</div>
+                  </div>
+                  <div class="playerActions">
+                    <span class="playerBadge ${escapeHtml(player.status)}">${escapeHtml(badgeLabel)}</span>
+                  </div>
+                </div>
+              `;
+            })
+            .join("")
+        : `<div class="pill" style="width: fit-content;">No players added yet.</div>`;
+
+      return `
+        <section class="teamRoster ${isActiveTeam ? "active" : ""}">
+          <div class="teamRosterHeader">
+            <div>
+              <div class="label">${escapeHtml(teamKey === "teamA" ? "Team A" : "Team B")}</div>
+              <div class="teamRosterName">${escapeHtml(team.name)}</div>
+              <div class="teamRosterMeta">${players.length} players</div>
+            </div>
+            <span class="pill">${isActiveTeam ? "Batting" : "Roster"}</span>
+          </div>
+          <div class="playerList">
+            ${rows}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderPlayers() {
+      const title = document.getElementById("playersTitle");
+      const strikerSummary = document.getElementById("strikerSummary");
+      const nonStrikerSummary = document.getElementById("nonStrikerSummary");
+      const list = document.getElementById("playersList");
+
+      const team = getTeam(match.activeTeam);
+      if (title) title.innerText = "Team Rosters";
+
+      const striker = team.players.find((player) => player.status === "striker");
+      const nonStriker = team.players.find((player) => player.status === "non-striker");
+
+      if (strikerSummary) strikerSummary.innerText = striker ? `Striker: ${striker.name} (${striker.runs})` : "Striker: -";
+      if (nonStrikerSummary) nonStrikerSummary.innerText = nonStriker ? `Non-striker: ${nonStriker.name} (${nonStriker.runs})` : "Non-striker: -";
+
+      if (!list) return;
+
+      list.innerHTML = [renderTeamRoster("teamA"), renderTeamRoster("teamB")].join("");
     }
 
     socket.on("matchUpdate", (data) => {

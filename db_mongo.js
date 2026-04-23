@@ -16,6 +16,16 @@ const SettingsSchema = new mongoose.Schema(
   { collection: "settings" }
 );
 
+const PlayerSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    runs: { type: Number, required: true, default: 0 },
+    status: { type: String, enum: ["striker", "non-striker", "waiting", "out"], required: true, default: "waiting" }
+  },
+  { _id: false }
+);
+
 const MatchSchema = new mongoose.Schema(
   {
     createdAt: { type: Date, required: true, default: () => new Date() },
@@ -25,13 +35,15 @@ const MatchSchema = new mongoose.Schema(
       name: { type: String, required: true },
       runs: { type: Number, required: true },
       wickets: { type: Number, required: true },
-      overs: { type: Number, required: true }
+      overs: { type: Number, required: true },
+      players: { type: [PlayerSchema], default: [] }
     },
     teamB: {
       name: { type: String, required: true },
       runs: { type: Number, required: true },
       wickets: { type: Number, required: true },
-      overs: { type: Number, required: true }
+      overs: { type: Number, required: true },
+      players: { type: [PlayerSchema], default: [] }
     }
   },
   { collection: "matches" }
@@ -130,10 +142,12 @@ async function listMatches({ limit = 5000 } = {}) {
     teamA_runs: m.teamA.runs,
     teamA_wickets: m.teamA.wickets,
     teamA_overs: m.teamA.overs,
+    teamA_players: Array.isArray(m.teamA.players) ? m.teamA.players : [],
     teamB_name: m.teamB.name,
     teamB_runs: m.teamB.runs,
     teamB_wickets: m.teamB.wickets,
-    teamB_overs: m.teamB.overs
+    teamB_overs: m.teamB.overs,
+    teamB_players: Array.isArray(m.teamB.players) ? m.teamB.players : []
   }));
 }
 

@@ -111,8 +111,8 @@ app.use(express.static("public"));
 let match = {
   activeTeam: "teamA",
   winner: null,
-  teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
-  teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
+  teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [] },
+  teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [] }
 };
 
 function overToBalls(value) {
@@ -134,6 +134,44 @@ function normalizeOver(value) {
   return ballsToOverNumber(overToBalls(value));
 }
 
+const VALID_PLAYER_STATUSES = new Set(["striker", "non-striker", "waiting", "out"]);
+
+function normalizePlayer(player, index = 0) {
+  const rawName = String(player?.name ?? `Player ${index + 1}`).trim();
+  const statusValue = String(player?.status || "").toLowerCase();
+  const status = VALID_PLAYER_STATUSES.has(statusValue) ? statusValue : "waiting";
+  const runs = Number(player?.runs ?? 0);
+
+  return {
+    id: String(player?.id ?? `player-${index + 1}`),
+    name: rawName || `Player ${index + 1}`,
+    runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+    status
+  };
+}
+
+function normalizePlayers(players) {
+  const list = Array.isArray(players) ? players.map((player, index) => normalizePlayer(player, index)) : [];
+  let strikerSeen = false;
+  let nonStrikerSeen = false;
+
+  return list.map((player) => {
+    if (player.status === "striker") {
+      if (strikerSeen) return { ...player, status: "waiting" };
+      strikerSeen = true;
+      return player;
+    }
+
+    if (player.status === "non-striker") {
+      if (nonStrikerSeen) return { ...player, status: "waiting" };
+      nonStrikerSeen = true;
+      return player;
+    }
+
+    return player;
+  });
+}
+
 function normalizeTeam(team, fallbackName) {
   const name = String(team?.name ?? fallbackName);
   const runs = Number(team?.runs ?? 0);
@@ -144,7 +182,8 @@ function normalizeTeam(team, fallbackName) {
     name: name || fallbackName,
     runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
     wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
-    over
+    over,
+    players: normalizePlayers(team?.players)
   };
 }
 

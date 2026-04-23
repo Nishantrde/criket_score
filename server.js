@@ -107,66 +107,11 @@ app.get("/", (req, res) => {
 // serve frontend
 app.use(express.static("public"));
 
-const MAX_WICKETS = 10;
-
-function createDefaultBatter(name) {
-  return {
-    name,
-    runs: 0,
-    balls: 0
-  };
-}
-
-function createDefaultBowler(name) {
-  return {
-    name,
-    balls: 0,
-    runs: 0,
-    wickets: 0
-  };
-}
-
 let match = {
   activeTeam: "teamA",
   winner: null,
-  teamA: {
-    name: "Team A",
-    runs: 0,
-    wickets: 0,
-    over: 0,
-    legalBalls: 0,
-    extras: { wide: 0, noBall: 0, bye: 0, total: 0 },
-    batting: {
-      striker: createDefaultBatter("Team A Batter 1"),
-      nonStriker: createDefaultBatter("Team A Batter 2"),
-      nextBatsmanNumber: 3
-    },
-    bowling: {
-      currentBowler: "Bowler 1",
-      bowlers: {
-        "Bowler 1": createDefaultBowler("Bowler 1")
-      }
-    }
-  },
-  teamB: {
-    name: "Team B",
-    runs: 0,
-    wickets: 0,
-    over: 0,
-    legalBalls: 0,
-    extras: { wide: 0, noBall: 0, bye: 0, total: 0 },
-    batting: {
-      striker: createDefaultBatter("Team B Batter 1"),
-      nonStriker: createDefaultBatter("Team B Batter 2"),
-      nextBatsmanNumber: 3
-    },
-    bowling: {
-      currentBowler: "Bowler 1",
-      bowlers: {
-        "Bowler 1": createDefaultBowler("Bowler 1")
-      }
-    }
-  }
+  teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
+  teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
 };
 
 function overToBalls(value) {
@@ -188,107 +133,17 @@ function normalizeOver(value) {
   return ballsToOverNumber(overToBalls(value));
 }
 
-function toSafeInt(value, fallback = 0) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.floor(n);
-}
-
-function clampInt(value, min, max) {
-  const n = toSafeInt(value, min);
-  return Math.min(max, Math.max(min, n));
-}
-
-function cleanName(value, fallback, maxLen = 60) {
-  const name = String(value ?? "").trim();
-  if (!name) return fallback;
-  return name.slice(0, maxLen);
-}
-
-function normalizeBatter(player, fallbackName) {
-  const name = cleanName(player?.name, fallbackName, 48);
-  return {
-    name,
-    runs: Math.max(0, toSafeInt(player?.runs, 0)),
-    balls: Math.max(0, toSafeInt(player?.balls, 0))
-  };
-}
-
-function normalizeBowler(bowler, fallbackName) {
-  const name = cleanName(bowler?.name, fallbackName, 48);
-  return {
-    name,
-    balls: Math.max(0, toSafeInt(bowler?.balls, 0)),
-    runs: Math.max(0, toSafeInt(bowler?.runs, 0)),
-    wickets: Math.max(0, toSafeInt(bowler?.wickets, 0))
-  };
-}
-
-function normalizeBowling(bowling) {
-  const source = typeof bowling === "object" && bowling !== null ? bowling : {};
-  const incomingBowlers =
-    typeof source.bowlers === "object" && source.bowlers !== null ? source.bowlers : {};
-  const bowlers = {};
-
-  for (const [name, stats] of Object.entries(incomingBowlers)) {
-    const key = cleanName(name, "", 48);
-    if (!key) continue;
-    bowlers[key] = normalizeBowler(stats, key);
-  }
-
-  const currentBowler = cleanName(source.currentBowler, "Bowler 1", 48);
-  if (!bowlers[currentBowler]) {
-    bowlers[currentBowler] = createDefaultBowler(currentBowler);
-  }
-
-  return {
-    currentBowler,
-    bowlers
-  };
-}
-
 function normalizeTeam(team, fallbackName) {
-  const name = cleanTeamName(team?.name, fallbackName);
-  const runs = Math.max(0, toSafeInt(team?.runs, 0));
-  const wickets = clampInt(team?.wickets, 0, MAX_WICKETS);
-  const legalBallsRaw = toSafeInt(team?.legalBalls, -1);
-  const legalBalls = legalBallsRaw >= 0 ? legalBallsRaw : overToBalls(team?.over);
-  const over = ballsToOverNumber(legalBalls);
-
-  const battingSource = typeof team?.batting === "object" && team.batting !== null ? team.batting : {};
-  const striker = normalizeBatter(battingSource.striker, `${name} Batter 1`);
-  let nonStriker = normalizeBatter(battingSource.nonStriker, `${name} Batter 2`);
-  if (striker.name === nonStriker.name) {
-    nonStriker.name = nonStriker.name.endsWith(" (NS)")
-      ? nonStriker.name
-      : `${nonStriker.name} (NS)`;
-  }
-
-  const nextBatsmanNumber = Math.max(3, toSafeInt(battingSource.nextBatsmanNumber, 3));
-
-  const extrasWide = Math.max(0, toSafeInt(team?.extras?.wide, 0));
-  const extrasNoBall = Math.max(0, toSafeInt(team?.extras?.noBall, 0));
-  const extrasBye = Math.max(0, toSafeInt(team?.extras?.bye, 0));
-  const extrasTotal = extrasWide + extrasNoBall + extrasBye;
+  const name = String(team?.name ?? fallbackName);
+  const runs = Number(team?.runs ?? 0);
+  const wickets = Number(team?.wickets ?? 0);
+  const over = normalizeOver(team?.over);
 
   return {
-    name,
-    runs,
-    wickets,
-    over,
-    legalBalls,
-    extras: {
-      wide: extrasWide,
-      noBall: extrasNoBall,
-      bye: extrasBye,
-      total: extrasTotal
-    },
-    batting: {
-      striker,
-      nonStriker,
-      nextBatsmanNumber
-    },
-    bowling: normalizeBowling(team?.bowling)
+    name: name || fallbackName,
+    runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+    wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+    over
   };
 }
 
@@ -302,48 +157,14 @@ function normalizeMatchState(state) {
   };
 }
 
-function hasInvalidTeamState(team) {
-  if (!team || typeof team !== "object") return true;
-  if (!Number.isFinite(team.runs) || team.runs < 0) return true;
-  if (!Number.isFinite(team.wickets) || team.wickets < 0 || team.wickets > MAX_WICKETS) return true;
-  if (!Number.isFinite(team.over) || team.over < 0) return true;
-  if (!Number.isFinite(team.legalBalls) || team.legalBalls < 0) return true;
-  if (team.legalBalls !== overToBalls(team.over)) return true;
-
-  const striker = team?.batting?.striker;
-  const nonStriker = team?.batting?.nonStriker;
-  if (!striker || !nonStriker) return true;
-  if (!striker.name || !nonStriker.name) return true;
-  if (striker.name === nonStriker.name) return true;
-  if (striker.runs < 0 || striker.balls < 0 || nonStriker.runs < 0 || nonStriker.balls < 0) return true;
-
-  const extras = team?.extras;
-  if (!extras) return true;
-  if (extras.wide < 0 || extras.noBall < 0 || extras.bye < 0 || extras.total < 0) return true;
-  if (extras.total !== extras.wide + extras.noBall + extras.bye) return true;
-
-  const bowling = team?.bowling;
-  if (!bowling || !bowling.currentBowler) return true;
-  if (!bowling.bowlers || typeof bowling.bowlers !== "object") return true;
-  if (!bowling.bowlers[bowling.currentBowler]) return true;
-
-  return false;
-}
-
-function hasInvalidMatchState(state) {
-  if (!state || typeof state !== "object") return true;
-  if (state.activeTeam !== "teamA" && state.activeTeam !== "teamB") return true;
-  if (hasInvalidTeamState(state.teamA)) return true;
-  if (hasInvalidTeamState(state.teamB)) return true;
-  return false;
-}
-
 function validateWinner(winner) {
   return winner === "teamA" || winner === "teamB";
 }
 
 function cleanTeamName(value, fallback) {
-  return cleanName(value, fallback, 60);
+  const name = String(value ?? "").trim();
+  if (!name) return fallback;
+  return name.slice(0, 60);
 }
 
 function namesChanged(nextMatch) {
@@ -361,20 +182,6 @@ async function emitMatchesUpdate(target) {
   } catch (err) {
     console.error("Failed to emit matchesUpdate", err);
   }
-}
-
-function getConnectedViewerCount() {
-  let count = 0;
-  for (const s of io.sockets.sockets.values()) {
-    if (s?.data?.role === "viewer") count += 1;
-  }
-  return count;
-}
-
-function emitViewerCount(target) {
-  const payload = { count: getConnectedViewerCount() };
-  if (target) target.emit("viewerCount", payload);
-  else io.emit("viewerCount", payload);
 }
 
 app.get("/api/matches", async (req, res) => {
@@ -437,7 +244,27 @@ app.post("/api/matches", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Team names are required." });
     }
 
-    if (hasInvalidMatchState(incomingMatch)) {
+    if (!Number.isFinite(incomingMatch.teamA.runs) || !Number.isFinite(incomingMatch.teamB.runs)) {
+      return res.status(400).json({ ok: false, error: "Match data is incomplete." });
+    }
+
+    if (
+      !Number.isFinite(incomingMatch.teamA.wickets) ||
+      !Number.isFinite(incomingMatch.teamB.wickets) ||
+      !Number.isFinite(incomingMatch.teamA.over) ||
+      !Number.isFinite(incomingMatch.teamB.over)
+    ) {
+      return res.status(400).json({ ok: false, error: "Match data is incomplete." });
+    }
+
+    if (
+      incomingMatch.teamA.runs < 0 ||
+      incomingMatch.teamB.runs < 0 ||
+      incomingMatch.teamA.wickets < 0 ||
+      incomingMatch.teamB.wickets < 0 ||
+      incomingMatch.teamA.over < 0 ||
+      incomingMatch.teamB.over < 0
+    ) {
       return res.status(400).json({ ok: false, error: "Match data is invalid." });
     }
 
@@ -471,12 +298,8 @@ function isAdminSocket(socket) {
 }
 
 io.on("connection", (socket) => {
-  const role = isAdminSocket(socket) ? "admin" : "viewer";
-  socket.data.role = role;
-
   console.log("User connected:", socket.id);
   console.log("Transport:", socket.conn.transport?.name);
-  console.log("Socket role:", socket.data.role);
 
   socket.conn.on("upgrade", (transport) => {
     console.log("Transport upgraded:", transport?.name);
@@ -490,8 +313,6 @@ io.on("connection", (socket) => {
   // backward compatibility
   socket.emit("scoreUpdate", match[match.activeTeam]);
 
-  emitViewerCount();
-
   socket.on("joinMatch", () => {
     console.log("User joined match");
   });
@@ -501,7 +322,6 @@ io.on("connection", (socket) => {
       if (!isAdminSocket(socket)) return;
 
       const nextMatch = normalizeMatchState(data);
-      if (hasInvalidMatchState(nextMatch)) return;
       const shouldPersistNames = namesChanged(nextMatch);
       match = nextMatch;
       io.emit("matchUpdate", match);
@@ -524,7 +344,7 @@ io.on("connection", (socket) => {
     try {
       if (!isAdminSocket(socket)) return;
 
-      const nextTeam = normalizeTeam(
+      match[match.activeTeam] = normalizeTeam(
         {
           ...match[match.activeTeam],
           runs: data?.runs,
@@ -533,12 +353,6 @@ io.on("connection", (socket) => {
         },
         match.activeTeam === "teamA" ? "Team A" : "Team B"
       );
-      const nextMatch = {
-        ...match,
-        [match.activeTeam]: nextTeam
-      };
-      if (hasInvalidMatchState(nextMatch)) return;
-      match = nextMatch;
       io.emit("matchUpdate", match);
       io.emit("scoreUpdate", match[match.activeTeam]);
     } catch (err) {
@@ -565,7 +379,26 @@ io.on("connection", (socket) => {
         return;
       }
 
-      if (hasInvalidMatchState(incomingMatch)) {
+      if (
+        !Number.isFinite(incomingMatch.teamA.runs) ||
+        !Number.isFinite(incomingMatch.teamB.runs) ||
+        !Number.isFinite(incomingMatch.teamA.wickets) ||
+        !Number.isFinite(incomingMatch.teamB.wickets) ||
+        !Number.isFinite(incomingMatch.teamA.over) ||
+        !Number.isFinite(incomingMatch.teamB.over)
+      ) {
+        if (typeof ack === "function") ack({ ok: false, error: "Match data is incomplete." });
+        return;
+      }
+
+      if (
+        incomingMatch.teamA.runs < 0 ||
+        incomingMatch.teamB.runs < 0 ||
+        incomingMatch.teamA.wickets < 0 ||
+        incomingMatch.teamB.wickets < 0 ||
+        incomingMatch.teamA.over < 0 ||
+        incomingMatch.teamB.over < 0
+      ) {
         if (typeof ack === "function") ack({ ok: false, error: "Match data is invalid." });
         return;
       }
@@ -581,7 +414,6 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
-    emitViewerCount();
   });
 });
 

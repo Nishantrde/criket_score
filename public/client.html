@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mojo Pravah • Live Score</title>
+  <title>Mojo Pravah • Cricket Scoring (Admin)</title>
   <style>
     :root {
       --bg: #f2f2f2;
@@ -29,6 +29,19 @@
       padding: 24px 16px 40px;
     }
 
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 6px;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -41,7 +54,6 @@
       color: var(--muted);
       font-size: 12px;
       letter-spacing: 0.2px;
-      margin-bottom: 10px;
     }
 
     .dot {
@@ -54,39 +66,39 @@
     }
 
     h1 {
-      margin: 0 0 6px;
+      margin: 0;
       font-size: 22px;
       line-height: 1.2;
     }
 
     .sub {
-      margin: 0 0 16px;
+      margin: 0;
       color: var(--muted);
       font-size: 13px;
     }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
     }
 
-    .grid {
+    .teamGrid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
+      margin-bottom: 12px;
     }
 
     @media (max-width: 860px) {
-      .grid { grid-template-columns: 1fr; }
+      .teamGrid { grid-template-columns: 1fr; }
     }
 
     .teamCard {
-      background: var(--surface);
+      background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 16px;
+      padding: 12px;
     }
 
     .teamCard.active {
@@ -98,13 +110,76 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       margin-bottom: 8px;
     }
 
     .teamName {
       font-weight: 850;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.2px;
+    }
+
+    .teamScore {
+      font-size: 26px;
+      font-weight: 850;
+      letter-spacing: -0.4px;
+    }
+
+    .seg {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .seg button {
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      padding: 8px 10px;
+      border-radius: 0;
+      font-weight: 750;
+    }
+
+    .seg button:last-child { border-right: 0; }
+    .seg .on { background: var(--accent); }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 13px;
+      min-height: 20px;
+    }
+
+    .status.ok { border-color: rgba(0,0,0,0.18); }
+    .status.err { border-color: rgba(0,0,0,0.35); }
+
+    @media (max-width: 860px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .scoreRow {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
     }
 
     .label {
@@ -115,19 +190,16 @@
     }
 
     .score {
-      margin: 8px 0 10px;
-      font-size: 52px;
-      font-weight: 800;
-      letter-spacing: -0.8px;
+      margin: 6px 0 0;
+      font-size: 42px;
+      font-weight: 750;
+      letter-spacing: -0.5px;
     }
 
-    .row {
+    .meta {
       display: flex;
+      gap: 10px;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border);
       color: var(--muted);
       font-size: 13px;
     }
@@ -142,14 +214,100 @@
       white-space: nowrap;
     }
 
-    @media (max-width: 480px) {
-      .score { font-size: 44px; }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
     }
+
+    .editor {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 650;
+    }
+
+    input:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 480px) {
+      .controls { grid-template-columns: 1fr; }
+      .score { font-size: 36px; }
+      .editor { grid-template-columns: 1fr; }
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 12px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+    .btnPrimary {
+      background: var(--accent);
+      border-color: rgba(0,0,0,0.12);
+    }
+
+    .btnWarn {
+      background: var(--surface);
+      border-color: rgba(0,0,0,0.25);
+    }
+
+    .sideTitle {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .kv {
+      display: grid;
+      gap: 10px;
+    }
+
+    .kvItem {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg);
+    }
+
+    .kvItem b { font-weight: 700; }
 
     .hist {
       display: grid;
       gap: 10px;
-      margin-top: 14px;
     }
 
     .histItem {
@@ -181,78 +339,132 @@
       font-weight: 650;
     }
 
-    .titleRow {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 18px;
-      padding-top: 14px;
-      border-top: 1px solid var(--border);
+    .smallBtn {
+      padding: 10px 12px;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
-    <h1>Live Cricket Score</h1>
-    <p class="sub">Audience view (auto-updates)</p>
+    <header>
+      <div class="brand">
+        <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
+        <h1>Cricket Scoring Admin</h1>
+        <p class="sub">Admin: <b>/admin</b> • Audience: <b>/client</b></p>
+      </div>
+      <div class="pill">Admin</div>
+    </header>
 
     <div class="grid">
-      <section class="teamCard" id="teamABox">
-        <div class="teamHead">
-          <div>
-            <div class="label">Team</div>
-            <div class="teamName" id="teamAName">Team A</div>
+      <section class="card">
+        <div class="editor" style="margin-top:0; padding-top:0; border-top:0; grid-template-columns: 1fr 1fr auto;">
+          <div class="field">
+            <div class="label">Team A Name</div>
+            <input id="teamANameInput" type="text" placeholder="Team A" />
           </div>
-          <span class="pill" id="teamAActive" style="display:none;">Batting</span>
+          <div class="field">
+            <div class="label">Team B Name</div>
+            <input id="teamBNameInput" type="text" placeholder="Team B" />
+          </div>
+          <button class="btnPrimary smallBtn" onclick="saveTeamNamesNow()">Save Names</button>
         </div>
-        <div class="label">Score</div>
-        <div class="score" id="teamAScore">0/0 (0.0)</div>
+
+        <div class="teamGrid">
+          <div class="teamCard" id="teamABox">
+            <div class="teamHead">
+              <div class="teamName" id="teamAName">Team A</div>
+              <span class="pill" id="teamAActive" style="display:none;">Batting</span>
+            </div>
+            <div class="teamScore" id="teamAScore">0/0 (0.0)</div>
+          </div>
+          <div class="teamCard" id="teamBBox">
+            <div class="teamHead">
+              <div class="teamName" id="teamBName">Team B</div>
+              <span class="pill" id="teamBActive" style="display:none;">Batting</span>
+            </div>
+            <div class="teamScore" id="teamBScore">0/0 (0.0)</div>
+          </div>
+        </div>
+
+        <div class="scoreRow">
+          <div>
+            <div class="label">Editing</div>
+            <div class="score" id="score">Loading…</div>
+          </div>
+          <div class="meta">
+            <div class="seg" role="tablist" aria-label="Active team">
+              <button id="teamABtn" class="on" onclick="setActiveTeam('teamA')">Team A</button>
+              <button id="teamBBtn" onclick="setActiveTeam('teamB')">Team B</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btnPrimary" onclick="hit(1)">+1 Run</button>
+          <button class="btnPrimary" onclick="hit(2)">+2 Run</button>
+          <button class="btnPrimary" onclick="hit(3)">+3 Run</button>
+          <button class="btnPrimary" onclick="hit(4)">FOUR</button>
+          <button class="btnPrimary" onclick="hit(5)">+5 Run</button>
+          <button class="btnPrimary" onclick="hit(6)">SIX</button>
+          <button class="btnWarn" onclick="wicket()">WICKET</button>
+          <button class="btnWarn" onclick="ball_count()">+1 BALL</button>
+          <button class="btnWarn" onclick="resetActiveTeam()">RESET TEAM</button>
+        </div>
+
+        <div class="editor">
+          <div class="field">
+            <div class="label">Runs</div>
+            <input id="runsInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <div class="label">Wickets</div>
+            <input id="wicketsInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <div class="label">Over</div>
+            <input id="overInput" type="text" inputmode="decimal" value="0.0" placeholder="e.g. 12.3" />
+          </div>
+          <button class="btnPrimary" onclick="pushScore()">Update Score</button>
+        </div>
+
+        <div class="editor">
+          <div class="field">
+            <div class="label">Winner (required)</div>
+            <select id="winnerSelect" style="width:100%; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:12px; padding:10px 12px; font-weight:650;">
+              <option value="">Select winner</option>
+              <option value="teamA" id="winnerA">Team A</option>
+              <option value="teamB" id="winnerB">Team B</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column: span 3;">
+            <div class="label">Record Match</div>
+            <button class="btnPrimary" onclick="recordMatch()">Record Match</button>
+          </div>
+        </div>
+
+        <div id="status" class="status"></div>
       </section>
 
-      <section class="teamCard" id="teamBBox">
-        <div class="teamHead">
+      <section class="card">
+        <div class="scoreRow" style="margin-top: 16px; margin-bottom: 12px;">
           <div>
-            <div class="label">Team</div>
-            <div class="teamName" id="teamBName">Team B</div>
+            <div class="label">History</div>
+            <div class="score" style="font-size: 22px;">Recorded Matches</div>
           </div>
-          <span class="pill" id="teamBActive" style="display:none;">Batting</span>
+          <div class="meta">
+            <button class="smallBtn" onclick="clearHistory()">Clear</button>
+            <button class="smallBtn" onclick="loadHistory()">Refresh</button>
+          </div>
         </div>
-        <div class="label">Score</div>
-        <div class="score" id="teamBScore">0/0 (0.0)</div>
+        <div id="history" class="hist"></div>
       </section>
-    </div>
 
-    <div class="row" style="margin-top: 12px;">
-      <span class="pill">Game: Cricket</span>
-      <span class="pill">Event: Mojo Pravah (Mojo Hostel)</span>
-    </div>
-
-    <div class="card" style="margin-top: 14px;">
-      <div class="titleRow">
-        <div>
-          <div class="label">History</div>
-          <div style="font-weight: 850; font-size: 18px;">Recorded Matches</div>
-        </div>
-        <button onclick="loadHistory()" style="border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-weight: 650; cursor: pointer;">Refresh</button>
-      </div>
-      <div id="history" class="hist"></div>
     </div>
   </div>
 
-  
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io({ transports: ["websocket", "polling"] });
-
-    socket.on("connect", () => {
-      console.log("socket connected", socket.id, "transport:", socket.io.engine.transport.name);
-    });
-
-    socket.io.engine.on("upgrade", (transport) => {
-      console.log("transport upgraded to", transport.name);
-    });
+    let socket = null;
 
     function overToBalls(value) {
       const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
@@ -277,7 +489,101 @@
       return normalizeOver(value).toFixed(1);
     }
 
+    function parseOverInput(str) {
+      const raw = String(str ?? "").trim();
+      if (!raw) return 0;
+
+      if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+
+      const m = raw.match(/^(\d+)\.(\d+)$/);
+      if (!m) return null;
+      const overs = Number.parseInt(m[1], 10);
+      const ballsStr = m[2];
+
+      // allow 1.0 or 1.00 etc
+      if (/^0+$/.test(ballsStr)) return overs;
+      if (ballsStr.length !== 1) return null;
+
+      const balls = Number.parseInt(ballsStr, 10);
+      if (!Number.isFinite(balls) || balls < 0 || balls > 5) return null;
+      return overs + balls / 10;
+    }
+
+    let match = {
+      activeTeam: "teamA",
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
+    };
+
     let history = [];
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        const msg = json.error || `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+      return json;
+    }
+
+    async function initSocket() {
+      let token = null;
+      try {
+        const json = await fetchJson("/api/admin/socket-token");
+        token = json.token;
+      } catch (err) {
+        console.warn("Failed to fetch admin socket token; connecting without token.", err);
+      }
+
+      socket = io({
+        transports: ["websocket", "polling"],
+        auth: token ? { adminToken: token } : undefined
+      });
+
+      socket.on("connect", () => {
+        console.log("socket connected", socket.id, "transport:", socket.io.engine.transport.name);
+      });
+
+      socket.io.engine.on("upgrade", (transport) => {
+        console.log("transport upgraded to", transport.name);
+      });
+
+      socket.on("matchUpdate", (data) => {
+        match = normalizeMatch(data);
+        render();
+      });
+
+      socket.on("matchesUpdate", (rows) => {
+        if (Array.isArray(rows)) {
+          history = rows;
+          renderHistory();
+        }
+      });
+
+      // fallback if an older server emits scoreUpdate only
+      socket.on("scoreUpdate", (data) => {
+        const t = normalizeTeam(data, match.activeTeam === "teamB" ? "Team B" : "Team A");
+        if (match.activeTeam === "teamB") match.teamB = t;
+        else match.teamA = t;
+        render();
+      });
+    }
+
+    async function clearHistory() {
+      const confirmed = window.confirm("This will permanently delete ALL recorded matches. Continue?");
+      if (!confirmed) return;
+      try {
+        setStatus("Clearing match history…", "");
+        await fetchJson("/api/matches", { method: "DELETE" });
+        history = [];
+        renderHistory();
+        setStatus("Match history cleared.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Failed to clear match history.", "err");
+      }
+    }
 
     function escapeHtml(s) {
       return String(s ?? "")
@@ -286,6 +592,123 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+    }
+
+    function normalizeTeam(team, fallbackName) {
+      const name = String(team?.name ?? fallbackName);
+      const runs = Number(team?.runs ?? 0);
+      const wickets = Number(team?.wickets ?? 0);
+      const over = normalizeOver(team?.over);
+      return {
+        name: name || fallbackName,
+        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
+        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+        over
+      };
+    }
+
+    function normalizeMatch(state) {
+      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
+      return {
+        activeTeam,
+        teamA: normalizeTeam(state?.teamA, "Team A"),
+        teamB: normalizeTeam(state?.teamB, "Team B")
+      };
+    }
+
+    function setStatus(message, kind) {
+      const el = document.getElementById("status");
+      el.className = "status" + (kind ? " " + kind : "");
+      el.innerText = message || "";
+    }
+
+    function getActiveTeam() {
+      return match.activeTeam === "teamB" ? match.teamB : match.teamA;
+    }
+
+    function setActiveTeam(teamKey) {
+      match.activeTeam = teamKey === "teamB" ? "teamB" : "teamA";
+      pushMatch();
+      render();
+    }
+
+    function pushMatch() {
+      if (!socket) return;
+      socket.emit("updateMatch", match);
+    }
+
+    function render() {
+      const a = match.teamA;
+      const b = match.teamB;
+
+      document.getElementById("teamAName").innerText = a.name;
+      document.getElementById("teamBName").innerText = b.name;
+      document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
+      document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
+
+      // keep inputs + labels in sync
+      const aInput = document.getElementById("teamANameInput");
+      const bInput = document.getElementById("teamBNameInput");
+      if (document.activeElement !== aInput) aInput.value = a.name;
+      if (document.activeElement !== bInput) bInput.value = b.name;
+
+      document.getElementById("teamABtn").innerText = a.name;
+      document.getElementById("teamBBtn").innerText = b.name;
+      document.getElementById("winnerA").innerText = a.name;
+      document.getElementById("winnerB").innerText = b.name;
+
+      const aActive = match.activeTeam === "teamA";
+      document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
+      document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
+      document.getElementById("teamAActive").style.display = aActive ? "inline-flex" : "none";
+      document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
+
+      document.getElementById("teamABtn").className = aActive ? "on" : "";
+      document.getElementById("teamBBtn").className = aActive ? "" : "on";
+
+      const t = getActiveTeam();
+      document.getElementById("score").innerText = `${t.runs}/${t.wickets} (${formatOver(t.over)})`;
+      syncInputsFromTeam();
+    }
+
+    let saveNamesTimer = null;
+
+    function onTeamNameInput() {
+      match.teamA.name = String(document.getElementById("teamANameInput").value ?? "").trim();
+      match.teamB.name = String(document.getElementById("teamBNameInput").value ?? "").trim();
+      pushMatch();
+      render();
+      if (saveNamesTimer) window.clearTimeout(saveNamesTimer);
+      saveNamesTimer = window.setTimeout(() => {
+        saveTeamNamesNow();
+      }, 600);
+    }
+
+    async function saveTeamNamesNow() {
+      const teamAName = String(document.getElementById("teamANameInput").value ?? "").trim();
+      const teamBName = String(document.getElementById("teamBNameInput").value ?? "").trim();
+      if (!teamAName || !teamBName) {
+        setStatus("Both team names are required.", "err");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/teams", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamAName, teamBName })
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          setStatus(json.error || "Failed to save team names.", "err");
+          return;
+        }
+        setStatus("Team names saved.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to save team names.", "err");
+      }
     }
 
     function renderHistory() {
@@ -322,82 +745,156 @@
         const res = await fetch("/api/matches?limit=50");
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.ok) {
-          console.error(json.error || "Failed to load match history");
+          setStatus(json.error || "Failed to load match history.", "err");
           return;
         }
         history = Array.isArray(json.matches) ? json.matches : [];
         renderHistory();
       } catch (err) {
         console.error(err);
+        setStatus("Failed to load match history.", "err");
       }
     }
 
-    let match = {
-      activeTeam: "teamA",
-      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0 },
-      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0 }
-    };
+    function syncInputsFromTeam() {
+      const runsInput = document.getElementById("runsInput");
+      const wicketsInput = document.getElementById("wicketsInput");
+      const overInput = document.getElementById("overInput");
 
-    function normalizeTeam(team, fallbackName) {
-      const name = String(team?.name ?? fallbackName);
-      const runs = Number(team?.runs ?? 0);
-      const wickets = Number(team?.wickets ?? 0);
-      const over = normalizeOver(team?.over);
-      return {
-        name: name || fallbackName,
-        runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
-        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
-        over
-      };
+      const t = getActiveTeam();
+      if (document.activeElement !== runsInput) runsInput.value = String(t.runs ?? 0);
+      if (document.activeElement !== wicketsInput) wicketsInput.value = String(t.wickets ?? 0);
+      if (document.activeElement !== overInput) overInput.value = formatOver(t.over ?? 0);
     }
 
-    function normalizeMatch(state) {
-      const activeTeam = state?.activeTeam === "teamB" ? "teamB" : "teamA";
-      return {
-        activeTeam,
-        teamA: normalizeTeam(state?.teamA, "Team A"),
-        teamB: normalizeTeam(state?.teamB, "Team B")
-      };
-    }
-
-    function render() {
-      const a = match.teamA;
-      const b = match.teamB;
-
-      document.getElementById("teamAName").innerText = a.name;
-      document.getElementById("teamBName").innerText = b.name;
-      document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
-      document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
-
-      const aActive = match.activeTeam === "teamA";
-      document.getElementById("teamAActive").style.display = aActive ? "inline-flex" : "none";
-      document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
-      document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
-      document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
-    }
-
-    socket.on("matchUpdate", (data) => {
-      match = normalizeMatch(data);
+    function hit(run) {
+      const t = getActiveTeam();
+      t.runs += run;
+      pushMatch();
       render();
-    });
+    }
 
-    socket.on("matchesUpdate", (rows) => {
-      if (Array.isArray(rows)) {
-        history = rows;
-        renderHistory();
+    function ball_count() {
+      const t = getActiveTeam();
+      const nextBalls = overToBalls(t.over) + 1;
+      t.over = ballsToOverNumber(nextBalls);
+      pushMatch();
+      render();
+    }
+
+    function pushScore() {
+      const runsVal = Number.parseInt(document.getElementById("runsInput").value, 10);
+      const wicketsVal = Number.parseInt(document.getElementById("wicketsInput").value, 10);
+      const overVal = document.getElementById("overInput").value.trim();
+
+      if (!Number.isFinite(runsVal) || runsVal < 0) return;
+      if (!Number.isFinite(wicketsVal) || wicketsVal < 0) return;
+      const overNum = parseOverInput(overVal);
+      if (overNum === null) {
+        alert("Over must be like 12.3 (balls 0-5)");
+        return;
       }
-    });
 
-    // fallback: if only scoreUpdate is received, treat it as active team score
-    socket.on("scoreUpdate", (data) => {
-      const t = normalizeTeam(data, match.activeTeam === "teamB" ? "Team B" : "Team A");
-      if (match.activeTeam === "teamB") match.teamB = t;
-      else match.teamA = t;
+      const t = getActiveTeam();
+      t.runs = runsVal;
+      t.wickets = wicketsVal;
+      t.over = normalizeOver(overNum);
+      pushMatch();
       render();
-    });
+    }
 
+    function wicket() {
+      const t = getActiveTeam();
+      t.wickets += 1;
+      pushMatch();
+      render();
+    }
+
+    function resetActiveTeam() {
+      const t = getActiveTeam();
+      t.runs = 0;
+      t.wickets = 0;
+      t.over = 0.0;
+      setStatus("Reset active team.", "ok");
+      pushMatch();
+      render();
+    }
+
+    async function recordMatch() {
+      const winner = document.getElementById("winnerSelect").value;
+      if (winner !== "teamA" && winner !== "teamB") {
+        setStatus("Winner is required before recording.", "err");
+        return;
+      }
+
+      if (!match.teamA.name || !match.teamB.name) {
+        setStatus("Both team names are required before recording.", "err");
+        return;
+      }
+
+      const confirmed = window.confirm("Record this match to the database?");
+      if (!confirmed) {
+        setStatus("Recording cancelled.", "");
+        return;
+      }
+
+      try {
+        setStatus("Recording match…", "");
+
+        // Prefer socket event (more reliable behind some production proxies)
+        if (socket && socket.connected) {
+          const result = await new Promise((resolve, reject) => {
+            socket
+              .timeout(8000)
+              .emit("recordMatch", { match, winner }, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+              });
+          });
+
+          if (!result || !result.ok) {
+            setStatus(result?.error || "Failed to record match.", "err");
+            return;
+          }
+
+          setStatus(`Match recorded (id: ${result.id}).`, "ok");
+          loadHistory();
+          return;
+        }
+
+        // Fallback to HTTP
+        const res = await fetch("/api/matches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match, winner })
+        });
+
+        const text = await res.text();
+        let json = {};
+        try {
+          json = JSON.parse(text || "{}");
+        } catch {
+          json = {};
+        }
+
+        if (!res.ok || !json.ok) {
+          setStatus(json.error || text || "Failed to record match.", "err");
+          return;
+        }
+
+        setStatus(`Match recorded (id: ${json.id}).`, "ok");
+        loadHistory();
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to record match.", "err");
+      }
+    }
+
+    document.getElementById("teamANameInput").addEventListener("input", onTeamNameInput);
+    document.getElementById("teamBNameInput").addEventListener("input", onTeamNameInput);
+
+    initSocket();
     loadHistory();
-
   </script>
 </body>
 </html>

@@ -363,6 +363,20 @@ async function emitMatchesUpdate(target) {
   }
 }
 
+function getConnectedViewerCount() {
+  let count = 0;
+  for (const s of io.sockets.sockets.values()) {
+    if (s?.data?.role === "viewer") count += 1;
+  }
+  return count;
+}
+
+function emitViewerCount(target) {
+  const payload = { count: getConnectedViewerCount() };
+  if (target) target.emit("viewerCount", payload);
+  else io.emit("viewerCount", payload);
+}
+
 app.get("/api/matches", async (req, res) => {
   try {
     const limit = Number.parseInt(req.query?.limit, 10);
@@ -457,8 +471,12 @@ function isAdminSocket(socket) {
 }
 
 io.on("connection", (socket) => {
+  const role = isAdminSocket(socket) ? "admin" : "viewer";
+  socket.data.role = role;
+
   console.log("User connected:", socket.id);
   console.log("Transport:", socket.conn.transport?.name);
+  console.log("Socket role:", socket.data.role);
 
   socket.conn.on("upgrade", (transport) => {
     console.log("Transport upgraded:", transport?.name);
@@ -471,6 +489,8 @@ io.on("connection", (socket) => {
 
   // backward compatibility
   socket.emit("scoreUpdate", match[match.activeTeam]);
+
+  emitViewerCount();
 
   socket.on("joinMatch", () => {
     console.log("User joined match");
@@ -561,6 +581,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
+    emitViewerCount();
   });
 });
 

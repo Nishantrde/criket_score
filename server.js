@@ -177,12 +177,14 @@ function normalizePlayers(players) {
 
 function normalizeBowler(bowler, index = 0) {
   const rawName = String(bowler?.name ?? "").trim();
+  const runsConceded = Number(bowler?.runsConceded ?? 0);
   const wickets = Number(bowler?.wickets ?? 0);
   const overs = normalizeOver(bowler?.overs ?? 0);
 
   return {
     id: String(bowler?.id ?? `bowler-${index + 1}`),
     name: rawName,
+    runsConceded: Number.isFinite(runsConceded) && runsConceded >= 0 ? Math.floor(runsConceded) : 0,
     wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
     overs
   };

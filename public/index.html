@@ -816,6 +816,7 @@
       const team = getTeam(teamKey);
       const bowlers = Array.isArray(team.bowlers) ? team.bowlers : [];
       const inputId = `bowlerNameInput-${teamKey}`;
+      const currentBowler = getCurrentBowler(team);
       const currentBowlerId = String(team.currentBowlerId || "");
       const activeBowlerId = currentBowlerId && bowlers.some((bowler) => String(bowler.id) === currentBowlerId)
         ? currentBowlerId
@@ -824,11 +825,16 @@
       const rows = bowlers.length
         ? bowlers
             .map((bowler) => {
+              const runsConceded = Number.isFinite(Number(bowler.runsConceded)) ? Math.max(0, Math.floor(Number(bowler.runsConceded))) : 0;
               return `
                 <div class="playerRow">
                   <div class="playerField">
                     <div class="label">Bowler</div>
                     <input type="text" value="${escapeHtml(bowler.name)}" onchange="updateBowlerName('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Runs Conceded</div>
+                    <input type="number" min="0" step="1" value="${runsConceded}" onchange="updateBowlerRunsConceded('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
                   </div>
                   <div class="playerField">
                     <div class="label">Wickets</div>
@@ -839,7 +845,7 @@
                     <input type="text" inputmode="decimal" value="${formatOver(bowler.overs)}" onchange="updateBowlerOvers('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
                   </div>
                   <div class="playerActions">
-                    <button class="roleBtn ${activeBowlerId === bowler.id ? "active-bowler" : ""}" onclick="setBowlerActive('${teamKey}', '${escapeHtml(bowler.id)}')">Bowler</button>
+                    <button class="roleBtn ${activeBowlerId === bowler.id ? "active-bowler" : ""}" onclick="setBowlerActive('${teamKey}', '${escapeHtml(bowler.id)}')">Current Bowling</button>
                     <button class="rowBtn dangerBtn" onclick="removeBowler('${teamKey}', '${escapeHtml(bowler.id)}')">Delete</button>
                   </div>
                 </div>
@@ -854,6 +860,7 @@
             <div>
               <div class="label">Bowlers</div>
               <div class="teamRosterMeta">${bowlers.length} bowlers</div>
+              <div class="teamRosterMeta">Current: ${escapeHtml(currentBowler?.name || "-")}</div>
             </div>
             <span class="pill">${match.activeTeam === teamKey ? "Live" : "Roster"}</span>
           </div>
@@ -906,6 +913,7 @@
       return {
         id: `b-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         name: String(name ?? "").trim(),
+        runsConceded: 0,
         wickets: Number.isFinite(wicketCount) && wicketCount >= 0 ? Math.floor(wicketCount) : 0,
         overs: normalizeOver(overs)
       };
@@ -953,12 +961,14 @@
 
     function normalizeBowler(bowler, index = 0) {
       const rawName = String(bowler?.name ?? "").trim();
+      const runsConceded = Number(bowler?.runsConceded ?? 0);
       const wickets = Number(bowler?.wickets ?? 0);
       const overs = normalizeOver(bowler?.overs ?? 0);
 
       return {
         id: String(bowler?.id ?? `bowler-${index + 1}`),
         name: rawName,
+        runsConceded: Number.isFinite(runsConceded) && runsConceded >= 0 ? Math.floor(runsConceded) : 0,
         wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
         overs
       };
@@ -1324,6 +1334,23 @@
       team.over = addBallsToOver(team.over, 1);
     }
 
+    function rotateStrike(team) {
+      const striker = team.players.find((player) => player.status === "striker");
+      const nextBatter = team.players.find((player) => player.status === "non-striker") || team.players.find((player) => player.status === "waiting");
+      if (!striker || !nextBatter || striker.id === nextBatter.id) return;
+
+      striker.status = "non-striker";
+      nextBatter.status = "striker";
+    }
+
+    function addBowlerRunsConceded(team, runs = 0) {
+      const bowler = getCurrentBowler(team);
+      const runCount = Number.isFinite(Number(runs)) ? Math.max(0, Math.floor(Number(runs))) : 0;
+      if (!bowler || runCount <= 0) return;
+
+      bowler.runsConceded = Math.max(0, Math.floor(Number(bowler.runsConceded ?? 0))) + runCount;
+    }
+
     function addPlayer(teamKey = match.activeTeam) {
       const input = document.getElementById(`playerNameInput-${teamKey}`) || document.getElementById("playerNameInput");
       const team = getTeam(teamKey);
@@ -1389,8 +1416,20 @@
 
       if (!window.confirm(`Reset bowler ${bowler.name}?`)) return;
 
+      bowler.runsConceded = 0;
       bowler.wickets = 0;
       bowler.overs = 0;
+      pushMatch();
+      render();
+    }
+
+    function updateBowlerRunsConceded(teamKey, bowlerId, value) {
+      const team = getTeam(teamKey);
+      const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
+      if (!bowler) return;
+
+      const runsConceded = Number.parseInt(String(value ?? "0"), 10);
+      bowler.runsConceded = Number.isFinite(runsConceded) && runsConceded >= 0 ? runsConceded : 0;
       pushMatch();
       render();
     }
@@ -1540,30 +1579,20 @@
               <div class="histLine">
                 <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
               </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamA_name || "Team A")} players</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryPlayers(teamAPlayers)}
+              ${teamAPlayers.length || teamABowlers.length ? `
+                <div class="histLine" style="display:grid; gap:8px;">
+                  <div>${escapeHtml(m?.teamA_name || "Team A")} details</div>
+                  ${teamAPlayers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryPlayers(teamAPlayers)}</div>` : ""}
+                  ${teamABowlers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryBowlers(teamABowlers)}</div>` : ""}
                 </div>
-              </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamB_name || "Team B")} players</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryPlayers(teamBPlayers)}
+              ` : ""}
+              ${teamBPlayers.length || teamBBowlers.length ? `
+                <div class="histLine" style="display:grid; gap:8px;">
+                  <div>${escapeHtml(m?.teamB_name || "Team B")} details</div>
+                  ${teamBPlayers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryPlayers(teamBPlayers)}</div>` : ""}
+                  ${teamBBowlers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryBowlers(teamBBowlers)}</div>` : ""}
                 </div>
-              </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamA_name || "Team A")} bowlers</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryBowlers(teamABowlers)}
-                </div>
-              </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamB_name || "Team B")} bowlers</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryBowlers(teamBBowlers)}
-                </div>
-              </div>
+              ` : ""}
               <div class="histActions">
                 <button class="smallBtn dangerBtn" data-match-id="${escapeHtml(recordId)}" onclick="deleteMatchById(this.dataset.matchId)">Delete</button>
               </div>
@@ -1653,37 +1682,43 @@
     }
 
     function hit(run) {
-      applyDelivery({ runs: run, countsBall: true, creditRunsToBatsman: true });
+      applyDelivery({ runs: run, countsBall: true, creditRunsToBatsman: true, bowlerRuns: run });
     }
 
     function wide() {
-      applyDelivery({ runs: 1, countsBall: false, creditRunsToBatsman: false });
+      applyDelivery({ runs: 1, countsBall: false, creditRunsToBatsman: false, bowlerRuns: 1 });
     }
 
     function noBall() {
-      applyDelivery({ runs: 1, countsBall: false, creditRunsToBatsman: false });
+      applyDelivery({ runs: 1, countsBall: false, creditRunsToBatsman: false, bowlerRuns: 1 });
     }
 
     function bye() {
-      applyDelivery({ runs: 1, countsBall: true, creditRunsToBatsman: false });
+      applyDelivery({ runs: 1, countsBall: true, creditRunsToBatsman: false, bowlerRuns: 0 });
     }
 
     function ball_count() {
-      applyDelivery({ countsBall: true, creditRunsToBatsman: false });
+      applyDelivery({ countsBall: true, creditRunsToBatsman: false, bowlerRuns: 0 });
     }
 
-    function applyDelivery({ runs = 0, wickets = 0, countsBall = true, creditRunsToBatsman = false } = {}) {
+    function applyDelivery({ runs = 0, wickets = 0, countsBall = true, creditRunsToBatsman = false, bowlerRuns = runs } = {}) {
       const t = getActiveTeam();
       const striker = ensureStriker(t);
+      const runCount = Number.isFinite(Number(runs)) ? Math.max(0, Math.floor(Number(runs))) : 0;
+      const bowlerRunCount = Number.isFinite(Number(bowlerRuns)) ? Math.max(0, Math.floor(Number(bowlerRuns))) : 0;
 
-      if (creditRunsToBatsman && striker && runs > 0) {
-        striker.runs += runs;
+      if (creditRunsToBatsman && striker && runCount > 0) {
+        striker.runs += runCount;
       }
 
-      t.runs += runs;
+      t.runs += runCount;
       t.wickets += wickets;
+      addBowlerRunsConceded(t, bowlerRunCount);
       if (countsBall) {
         advanceLegalDelivery(t, striker);
+        if (runCount % 2 === 1) {
+          rotateStrike(t);
+        }
       }
       if (wickets > 0) {
         if (striker) striker.status = "out";

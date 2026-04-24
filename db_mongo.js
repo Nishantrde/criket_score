@@ -31,6 +31,7 @@ const BowlerSchema = new mongoose.Schema(
   {
     id: { type: String, required: true },
     name: { type: String, required: true },
+    runsConceded: { type: Number, required: true, default: 0 },
     wickets: { type: Number, required: true, default: 0 },
     overs: { type: Number, required: true, default: 0 }
   },

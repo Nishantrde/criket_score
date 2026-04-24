@@ -504,12 +504,14 @@
 
     function normalizeBowler(bowler, index = 0) {
       const rawName = String(bowler?.name ?? "").trim();
+      const runsConceded = Number(bowler?.runsConceded ?? 0);
       const wickets = Number(bowler?.wickets ?? 0);
       const overs = normalizeOver(bowler?.overs ?? 0);
 
       return {
         id: String(bowler?.id ?? `bowler-${index + 1}`),
         name: rawName,
+        runsConceded: Number.isFinite(runsConceded) && runsConceded >= 0 ? Math.floor(runsConceded) : 0,
         wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
         overs
       };
@@ -598,30 +600,20 @@
               <div class="histLine">
                 <div>${escapeHtml(m?.teamB_name || "Team B")} <span>${m?.teamB_runs ?? 0}/${m?.teamB_wickets ?? 0} (${formatOver(m?.teamB_overs ?? 0)})</span></div>
               </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamA_name || "Team A")} players</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryPlayers(teamAPlayers)}
+              ${teamAPlayers.length || teamABowlers.length ? `
+                <div class="histLine" style="display:grid; gap:8px;">
+                  <div>${escapeHtml(m?.teamA_name || "Team A")} details</div>
+                  ${teamAPlayers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryPlayers(teamAPlayers)}</div>` : ""}
+                  ${teamABowlers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryBowlers(teamABowlers)}</div>` : ""}
                 </div>
-              </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamB_name || "Team B")} players</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryPlayers(teamBPlayers)}
+              ` : ""}
+              ${teamBPlayers.length || teamBBowlers.length ? `
+                <div class="histLine" style="display:grid; gap:8px;">
+                  <div>${escapeHtml(m?.teamB_name || "Team B")} details</div>
+                  ${teamBPlayers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryPlayers(teamBPlayers)}</div>` : ""}
+                  ${teamBBowlers.length ? `<div class="playerActions" style="justify-content:flex-start;">${renderHistoryBowlers(teamBBowlers)}</div>` : ""}
                 </div>
-              </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamA_name || "Team A")} bowlers</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryBowlers(teamABowlers)}
-                </div>
-              </div>
-              <div class="histLine" style="display:grid; gap:8px;">
-                <div>${escapeHtml(m?.teamB_name || "Team B")} bowlers</div>
-                <div class="playerActions" style="justify-content:flex-start;">
-                  ${renderHistoryBowlers(teamBBowlers)}
-                </div>
-              </div>
+              ` : ""}
             </div>
           `;
         })

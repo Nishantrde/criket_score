@@ -555,8 +555,9 @@
         .map((bowler) => {
           const wickets = Number.isFinite(Number(bowler?.wickets)) ? Math.max(0, Math.floor(Number(bowler.wickets))) : 0;
           const overs = Number.isFinite(Number(bowler?.overs)) ? normalizeOver(bowler.overs) : 0;
+          const runsConceded = Number.isFinite(Number(bowler?.runsConceded)) ? Math.max(0, Math.floor(Number(bowler.runsConceded))) : 0;
           const name = String(bowler?.name ?? "").trim();
-          const label = name ? `${name} (${wickets} wkts, ${formatOver(overs)} ov)` : `(${wickets} wkts, ${formatOver(overs)} ov)`;
+          const label = name ? `${name} (${wickets} wkts, ${formatOver(overs)} ov, ${runsConceded} rc)` : `(${wickets} wkts, ${formatOver(overs)} ov, ${runsConceded} rc)`;
           return `<span class="playerBadge bowler">${escapeHtml(label)}</span>`;
         })
         .join("");
@@ -734,12 +735,14 @@
         ? bowlers
             .map((bowler) => {
               const wickets = Number.isFinite(Number(bowler.wickets)) ? Math.max(0, Math.floor(Number(bowler.wickets))) : 0;
+              const runsConceded = Number.isFinite(Number(bowler.runsConceded)) ? Math.max(0, Math.floor(Number(bowler.runsConceded))) : 0;
               const overs = Number.isFinite(Number(bowler.overs)) ? normalizeOver(bowler.overs) : 0;
               return `
                 <div class="playerRow">
                   <div class="playerField">
                     <div class="label">Bowler</div>
                     <div style="font-weight: 800; font-size: 15px;">${escapeHtml(bowler.name)}</div>
+                    <div style="color: var(--muted); font-size: 12px; margin-top: 4px;">Runs conceded: ${runsConceded}</div>
                   </div>
                   <div class="playerField">
                     <div class="label">Wickets</div>

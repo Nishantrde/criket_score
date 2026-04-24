@@ -700,6 +700,10 @@
             <div class="label">Over</div>
             <input id="overInput" type="text" inputmode="decimal" value="0.0" placeholder="e.g. 12.3" />
           </div>
+          <div class="field">
+            <div class="label">Current RR</div>
+            <input id="runRateInput" type="text" readonly value="0.00" />
+          </div>
           <button class="btnPrimary" onclick="pushScore()">Update Score</button>
         </div>
 
@@ -817,6 +821,9 @@
       const bowlers = Array.isArray(team.bowlers) ? team.bowlers : [];
       const inputId = `bowlerNameInput-${teamKey}`;
       const currentBowler = getCurrentBowler(team);
+      const currentBowlerRunsConceded = currentBowler && Number.isFinite(Number(currentBowler.runsConceded))
+        ? Math.max(0, Math.floor(Number(currentBowler.runsConceded)))
+        : 0;
       const currentBowlerId = String(team.currentBowlerId || "");
       const activeBowlerId = currentBowlerId && bowlers.some((bowler) => String(bowler.id) === currentBowlerId)
         ? currentBowlerId
@@ -834,7 +841,7 @@
                   </div>
                   <div class="playerField">
                     <div class="label">Runs Conceded</div>
-                    <input type="number" min="0" step="1" value="${runsConceded}" onchange="updateBowlerRunsConceded('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" value="${runsConceded}" onchange="updateBowlerRunsConceded('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
                   </div>
                   <div class="playerField">
                     <div class="label">Wickets</div>
@@ -860,7 +867,7 @@
             <div>
               <div class="label">Bowlers</div>
               <div class="teamRosterMeta">${bowlers.length} bowlers</div>
-              <div class="teamRosterMeta">Current: ${escapeHtml(currentBowler?.name || "-")}</div>
+              <div class="teamRosterMeta">Current: ${escapeHtml(currentBowler?.name || "-")} · ${currentBowlerRunsConceded} runs conceded</div>
             </div>
             <span class="pill">${match.activeTeam === teamKey ? "Live" : "Roster"}</span>
           </div>
@@ -1004,6 +1011,31 @@
 
     function formatOver(value) {
       return normalizeOver(value).toFixed(1);
+    }
+
+    function formatRunRate(team) {
+      const runs = Number(team?.runs ?? 0);
+      const balls = overToBalls(team?.over ?? 0);
+      if (!Number.isFinite(runs) || balls <= 0) return "0.00";
+      return ((runs * 6) / balls).toFixed(2);
+    }
+
+    function parseOverInput(str) {
+      const raw = String(str ?? "").trim();
+      if (!raw) return null;
+
+      if (/^\d+$/.test(raw)) {
+        return Number.parseInt(raw, 10);
+      }
+
+      const match = raw.match(/^(\d+)\.(\d)$/);
+      if (!match) return null;
+
+      const overs = Number.parseInt(match[1], 10);
+      const balls = Number.parseInt(match[2], 10);
+      if (!Number.isFinite(overs) || !Number.isFinite(balls) || balls < 0 || balls > 5) return null;
+
+      return overs + balls / 10;
     }
 
     function playerStatusLabel(status) {
@@ -1276,7 +1308,8 @@
         .map((bowler) => {
           const wickets = Number.isFinite(Number(bowler?.wickets)) ? Math.max(0, Math.floor(Number(bowler.wickets))) : 0;
           const overs = Number.isFinite(Number(bowler?.overs)) ? normalizeOver(bowler.overs) : 0;
-          const label = `${String(bowler?.name || "Bowler")} (${wickets} wkts, ${formatOver(overs)} ov)`;
+          const runsConceded = Number.isFinite(Number(bowler?.runsConceded)) ? Math.max(0, Math.floor(Number(bowler.runsConceded))) : 0;
+          const label = `${String(bowler?.name || "Bowler")} (${wickets} wkts, ${formatOver(overs)} ov, ${runsConceded} rc)`;
           return `<span class="playerBadge bowler">${escapeHtml(label)}</span>`;
         })
         .join("");
@@ -1296,6 +1329,10 @@
 
     function getTeamBowlers(teamKey = match.activeTeam) {
       return getTeam(teamKey).bowlers;
+    }
+
+    function getBowlingTeam(team = getActiveTeam()) {
+      return team === match.teamA ? match.teamB : match.teamA;
     }
 
     function getCurrentBowler(team = getActiveTeam()) {
@@ -1326,7 +1363,7 @@
         striker.overs = addBallsToOver(striker.overs, 1);
       }
 
-      const bowler = getCurrentBowler(team);
+      const bowler = getCurrentBowler(getBowlingTeam(team));
       if (bowler) {
         bowler.overs = addBallsToOver(bowler.overs, 1);
       }
@@ -1349,6 +1386,24 @@
       if (!bowler || runCount <= 0) return;
 
       bowler.runsConceded = Math.max(0, Math.floor(Number(bowler.runsConceded ?? 0))) + runCount;
+    }
+
+    function adjustBowlerRunsConceded(team, delta = 0) {
+      const bowler = getCurrentBowler(team);
+      const change = Number.isFinite(Number(delta)) ? Math.trunc(Number(delta)) : 0;
+      if (!bowler || change === 0) return;
+
+      const current = Math.max(0, Math.floor(Number(bowler.runsConceded ?? 0)));
+      bowler.runsConceded = Math.max(0, current + change);
+    }
+
+    function adjustBowlerOvers(team, deltaBalls = 0) {
+      const bowler = getCurrentBowler(team);
+      const change = Number.isFinite(Number(deltaBalls)) ? Math.trunc(Number(deltaBalls)) : 0;
+      if (!bowler || change === 0) return;
+
+      const currentBalls = overToBalls(bowler.overs ?? 0);
+      bowler.overs = ballsToOverNumber(Math.max(0, currentBalls + change));
     }
 
     function addPlayer(teamKey = match.activeTeam) {
@@ -1428,8 +1483,14 @@
       const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
       if (!bowler) return;
 
-      const runsConceded = Number.parseInt(String(value ?? "0"), 10);
-      bowler.runsConceded = Number.isFinite(runsConceded) && runsConceded >= 0 ? runsConceded : 0;
+      const raw = String(value ?? "").trim();
+      if (!raw) return;
+
+      const runsConceded = Number.parseInt(raw, 10);
+      if (!Number.isFinite(runsConceded) || runsConceded < 0) return;
+
+      bowler.runsConceded = runsConceded;
+      team.currentBowlerId = bowler.id;
       pushMatch();
       render();
     }
@@ -1674,11 +1735,13 @@
       const runsInput = document.getElementById("runsInput");
       const wicketsInput = document.getElementById("wicketsInput");
       const overInput = document.getElementById("overInput");
+      const runRateInput = document.getElementById("runRateInput");
 
       const t = getActiveTeam();
       if (document.activeElement !== runsInput) runsInput.value = String(t.runs ?? 0);
       if (document.activeElement !== wicketsInput) wicketsInput.value = String(t.wickets ?? 0);
       if (document.activeElement !== overInput) overInput.value = formatOver(t.over ?? 0);
+      if (runRateInput) runRateInput.value = formatRunRate(t);
     }
 
     function hit(run) {
@@ -1703,6 +1766,7 @@
 
     function applyDelivery({ runs = 0, wickets = 0, countsBall = true, creditRunsToBatsman = false, bowlerRuns = runs } = {}) {
       const t = getActiveTeam();
+      const bowlingTeam = getBowlingTeam(t);
       const striker = ensureStriker(t);
       const runCount = Number.isFinite(Number(runs)) ? Math.max(0, Math.floor(Number(runs))) : 0;
       const bowlerRunCount = Number.isFinite(Number(bowlerRuns)) ? Math.max(0, Math.floor(Number(bowlerRuns))) : 0;
@@ -1713,7 +1777,7 @@
 
       t.runs += runCount;
       t.wickets += wickets;
-      addBowlerRunsConceded(t, bowlerRunCount);
+      addBowlerRunsConceded(bowlingTeam, bowlerRunCount);
       if (countsBall) {
         advanceLegalDelivery(t, striker);
         if (runCount % 2 === 1) {
@@ -1759,6 +1823,10 @@
     }
 
     function pushScore() {
+      const t = getActiveTeam();
+      const bowlingTeam = getBowlingTeam(t);
+      const previousRuns = Number(t.runs ?? 0);
+      const previousOverBalls = overToBalls(t.over ?? 0);
       const runsVal = Number.parseInt(document.getElementById("runsInput").value, 10);
       const wicketsVal = Number.parseInt(document.getElementById("wicketsInput").value, 10);
       const overVal = document.getElementById("overInput").value.trim();
@@ -1771,10 +1839,11 @@
         return;
       }
 
-      const t = getActiveTeam();
       t.runs = runsVal;
       t.wickets = wicketsVal;
       t.over = normalizeOver(overNum);
+      adjustBowlerRunsConceded(bowlingTeam, runsVal - previousRuns);
+      adjustBowlerOvers(bowlingTeam, overToBalls(overNum) - previousOverBalls);
       pushMatch();
       render();
     }

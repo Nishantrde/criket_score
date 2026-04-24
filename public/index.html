@@ -42,6 +42,12 @@
       gap: 6px;
     }
 
+    .headerAside {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -344,7 +350,7 @@
 
     .playerRow {
       display: grid;
-      grid-template-columns: minmax(0, 1.35fr) 92px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.35fr) 92px 92px minmax(0, 1fr);
       gap: 10px;
       align-items: center;
       border: 1px solid var(--border);
@@ -377,6 +383,19 @@
       font-weight: 750;
     }
 
+    .rowBtn {
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .rowBtn.dangerBtn {
+      background: #fff4f4;
+      color: #812323;
+      border-color: rgba(129, 35, 35, 0.24);
+    }
+
     .roleBtn.active-striker {
       background: #dff2e1;
       border-color: rgba(37, 99, 53, 0.25);
@@ -390,6 +409,11 @@
     .roleBtn.active-out {
       background: #fde9e9;
       border-color: rgba(160, 47, 47, 0.25);
+    }
+
+    .roleBtn.active-bowler {
+      background: #f3efe4;
+      border-color: rgba(107, 77, 8, 0.25);
     }
 
     .playerBadge {
@@ -423,6 +447,11 @@
     .playerBadge.waiting {
       background: #f5f5f5;
       color: #555;
+    }
+
+    .playerBadge.bowler {
+      background: #f3efe4;
+      color: #6b4d08;
     }
 
     .adminOnly {
@@ -590,7 +619,10 @@
         <h1>Cricket Scoring Admin</h1>
         <p class="sub">Admin: <b>/admin</b> • Audience: <b>/client</b></p>
       </div>
-      <div class="pill">Admin</div>
+      <div class="headerAside">
+        <div class="badge viewerBadge"><span class="dot"></span> Live viewers: <b id="viewerCount">0</b></div>
+        <div class="pill">Admin</div>
+      </div>
     </header>
 
     <div class="grid">
@@ -627,7 +659,7 @@
         <div class="scoreRow">
           <div>
             <div class="label">Editing</div>
-            <div class="score" id="score">Loading…</div>
+            <div class="score" id="score">0/0 (0.0)</div>
           </div>
           <div class="meta">
             <div class="seg" role="tablist" aria-label="Active team">
@@ -723,71 +755,177 @@
   <script>
     let socket = null;
 
-    function overToBalls(value) {
-      const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
-      const safe = Number.isFinite(num) && num >= 0 ? num : 0;
-      const overs = Math.floor(safe);
-      const balls = Math.round((safe - overs) * 10);
-      return overs * 6 + Math.max(0, balls);
+    function renderPlayerRoster(teamKey) {
+      const team = getTeam(teamKey);
+      const players = Array.isArray(team.players) ? team.players : [];
+      const inputId = `playerNameInput-${teamKey}`;
+
+      const rows = players.length
+        ? players
+            .map((player) => {
+              const badgeLabel = playerStatusLabel(player.status);
+              const overs = Number.isFinite(Number(player.overs)) ? normalizeOver(player.overs) : 0;
+              return `
+                <div class="playerRow">
+                  <div class="playerField">
+                    <div class="label">Player</div>
+                    <input type="text" value="${escapeHtml(player.name)}" onchange="updatePlayerName('${teamKey}', '${escapeHtml(player.id)}', this.value)" />
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Runs</div>
+                    <input type="number" min="0" step="1" value="${player.runs}" onchange="updatePlayerRuns('${teamKey}', '${escapeHtml(player.id)}', this.value)" />
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Overs</div>
+                    <input type="text" inputmode="decimal" value="${formatOver(overs)}" onchange="updatePlayerOvers('${teamKey}', '${escapeHtml(player.id)}', this.value)" />
+                  </div>
+                  <div class="playerActions">
+                    <button class="roleBtn ${player.status === "striker" ? "active-striker" : ""}" onclick="setPlayerRole('${teamKey}', '${escapeHtml(player.id)}', 'striker')">Striker</button>
+                    <button class="roleBtn ${player.status === "non-striker" ? "active-non-striker" : ""}" onclick="setPlayerRole('${teamKey}', '${escapeHtml(player.id)}', 'non-striker')">Non-striker</button>
+                    <button class="roleBtn ${player.status === "out" ? "active-out" : ""}" onclick="setPlayerRole('${teamKey}', '${escapeHtml(player.id)}', 'out')">Out</button>
+                    <span class="playerBadge ${escapeHtml(player.status)}">${escapeHtml(badgeLabel)}</span>
+                    <button class="rowBtn dangerBtn" onclick="removePlayer('${teamKey}', '${escapeHtml(player.id)}')">Delete</button>
+                  </div>
+                </div>
+              `;
+            })
+            .join("")
+        : `<div class="pill" style="width: fit-content;">No players added yet.</div>`;
+
+      return `
+        <div style="display:grid; gap:10px;">
+          <div class="teamRosterHeader" style="margin-top: 2px;">
+            <div>
+              <div class="label">Players</div>
+              <div class="teamRosterMeta">${players.length} players</div>
+            </div>
+            <span class="pill">${match.activeTeam === teamKey ? "Batting" : "Roster"}</span>
+          </div>
+          <div class="playersForm">
+            <input id="${inputId}" type="text" placeholder="Add player name" />
+            <button class="btnPrimary smallBtn" onclick="addPlayer('${teamKey}')">Add Player</button>
+          </div>
+          <div class="playerList">
+            ${rows}
+          </div>
+        </div>
+      `;
     }
 
-    function ballsToOverNumber(totalBalls) {
-      const safe = Number.isFinite(totalBalls) && totalBalls >= 0 ? Math.floor(totalBalls) : 0;
-      const overs = Math.floor(safe / 6);
-      const balls = safe % 6;
-      return overs + balls / 10;
+    function renderBowlerRoster(teamKey) {
+      const team = getTeam(teamKey);
+      const bowlers = Array.isArray(team.bowlers) ? team.bowlers : [];
+      const inputId = `bowlerNameInput-${teamKey}`;
+      const currentBowlerId = String(team.currentBowlerId || "");
+      const activeBowlerId = currentBowlerId && bowlers.some((bowler) => String(bowler.id) === currentBowlerId)
+        ? currentBowlerId
+        : String(bowlers[0]?.id || "");
+
+      const rows = bowlers.length
+        ? bowlers
+            .map((bowler) => {
+              return `
+                <div class="playerRow">
+                  <div class="playerField">
+                    <div class="label">Bowler</div>
+                    <input type="text" value="${escapeHtml(bowler.name)}" onchange="updateBowlerName('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Wickets</div>
+                    <input type="number" min="0" step="1" value="${bowler.wickets}" onchange="updateBowlerWickets('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Overs</div>
+                    <input type="text" inputmode="decimal" value="${formatOver(bowler.overs)}" onchange="updateBowlerOvers('${teamKey}', '${escapeHtml(bowler.id)}', this.value)" />
+                  </div>
+                  <div class="playerActions">
+                    <button class="roleBtn ${activeBowlerId === bowler.id ? "active-bowler" : ""}" onclick="setBowlerActive('${teamKey}', '${escapeHtml(bowler.id)}')">Bowler</button>
+                    <button class="rowBtn dangerBtn" onclick="removeBowler('${teamKey}', '${escapeHtml(bowler.id)}')">Delete</button>
+                  </div>
+                </div>
+              `;
+            })
+            .join("")
+        : `<div class="pill" style="width: fit-content;">No bowlers added yet.</div>`;
+
+      return `
+        <div style="display:grid; gap:10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <div class="teamRosterHeader" style="margin-top: 2px;">
+            <div>
+              <div class="label">Bowlers</div>
+              <div class="teamRosterMeta">${bowlers.length} bowlers</div>
+            </div>
+            <span class="pill">${match.activeTeam === teamKey ? "Live" : "Roster"}</span>
+          </div>
+          <div class="playersForm">
+            <input id="${inputId}" type="text" placeholder="Add bowler name" />
+            <button class="btnPrimary smallBtn" onclick="addBowler('${teamKey}')">Add Bowler</button>
+          </div>
+          <div class="playerList">
+            ${rows}
+          </div>
+        </div>
+      `;
     }
 
-    function normalizeOver(value) {
-      return ballsToOverNumber(overToBalls(value));
+    function renderTeamRoster(teamKey) {
+      const team = getTeam(teamKey);
+      const isActiveTeam = match.activeTeam === teamKey;
+      const teamName = getTeamDisplayName(teamKey);
+      const players = Array.isArray(team.players) ? team.players : [];
+      const bowlers = Array.isArray(team.bowlers) ? team.bowlers : [];
+
+      return `
+        <section class="teamRoster ${isActiveTeam ? "active" : ""}">
+          <div class="teamRosterHeader">
+            <div>
+              <div class="label">${escapeHtml(teamKey === "teamA" ? "Team A" : "Team B")}</div>
+              <div class="teamRosterName">${escapeHtml(teamName)}</div>
+              <div class="teamRosterMeta">${players.length} players • ${bowlers.length} bowlers</div>
+            </div>
+            <span class="pill">${isActiveTeam ? "Batting" : "Roster"}</span>
+          </div>
+          ${renderPlayerRoster(teamKey)}
+          ${renderBowlerRoster(teamKey)}
+        </section>
+      `;
     }
 
-    function formatOver(value) {
-      return normalizeOver(value).toFixed(1);
+    function createPlayer(name = "", status = "waiting", overs = 0) {
+      return {
+        id: `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        name: String(name ?? "").trim(),
+        runs: 0,
+        status,
+        overs: normalizeOver(overs)
+      };
     }
 
-    function parseOverInput(str) {
-      const raw = String(str ?? "").trim();
-      if (!raw) return 0;
-
-      if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
-
-      const m = raw.match(/^(\d+)\.(\d+)$/);
-      if (!m) return null;
-      const overs = Number.parseInt(m[1], 10);
-      const ballsStr = m[2];
-
-      // allow 1.0 or 1.00 etc
-      if (/^0+$/.test(ballsStr)) return overs;
-      if (ballsStr.length !== 1) return null;
-
-      const balls = Number.parseInt(ballsStr, 10);
-      if (!Number.isFinite(balls) || balls < 0 || balls > 5) return null;
-      return overs + balls / 10;
+    function createBowler(name = "", wickets = 0, overs = 0) {
+      const wicketCount = Number(wickets);
+      return {
+        id: `b-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        name: String(name ?? "").trim(),
+        wickets: Number.isFinite(wicketCount) && wicketCount >= 0 ? Math.floor(wicketCount) : 0,
+        overs: normalizeOver(overs)
+      };
     }
 
     const VALID_PLAYER_STATUSES = new Set(["striker", "non-striker", "waiting", "out"]);
 
-    function createPlayer(name = "", status = "waiting") {
-      return {
-        id: `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-        name: String(name || "").trim() || "Player",
-        runs: 0,
-        status
-      };
-    }
-
     function normalizePlayer(player, index = 0) {
-      const rawName = String(player?.name ?? `Player ${index + 1}`).trim();
+      const rawName = String(player?.name ?? "").trim();
       const statusValue = String(player?.status || "").toLowerCase();
       const status = VALID_PLAYER_STATUSES.has(statusValue) ? statusValue : "waiting";
       const runs = Number(player?.runs ?? 0);
+      const overs = normalizeOver(player?.overs ?? 0);
 
       return {
         id: String(player?.id ?? `player-${index + 1}`),
-        name: rawName || `Player ${index + 1}`,
+        name: rawName,
         runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
-        status
+        status,
+        overs
       };
     }
 
@@ -813,6 +951,51 @@
       });
     }
 
+    function normalizeBowler(bowler, index = 0) {
+      const rawName = String(bowler?.name ?? "").trim();
+      const wickets = Number(bowler?.wickets ?? 0);
+      const overs = normalizeOver(bowler?.overs ?? 0);
+
+      return {
+        id: String(bowler?.id ?? `bowler-${index + 1}`),
+        name: rawName,
+        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+        overs
+      };
+    }
+
+    function normalizeBowlers(bowlers) {
+      return Array.isArray(bowlers) ? bowlers.map((bowler, index) => normalizeBowler(bowler, index)) : [];
+    }
+
+    function overToBalls(value) {
+      const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
+      const safe = Number.isFinite(num) && num >= 0 ? num : 0;
+      const overs = Math.floor(safe);
+      const balls = Math.round((safe - overs) * 10);
+      return overs * 6 + Math.max(0, balls);
+    }
+
+    function ballsToOverNumber(totalBalls) {
+      const safe = Number.isFinite(totalBalls) && totalBalls >= 0 ? Math.floor(totalBalls) : 0;
+      const overs = Math.floor(safe / 6);
+      const balls = safe % 6;
+      return overs + balls / 10;
+    }
+
+    function normalizeOver(value) {
+      return ballsToOverNumber(overToBalls(value));
+    }
+
+    function addBallsToOver(value, balls = 1) {
+      const safeBalls = Number.isFinite(balls) && balls > 0 ? Math.floor(balls) : 0;
+      return ballsToOverNumber(overToBalls(value) + safeBalls);
+    }
+
+    function formatOver(value) {
+      return normalizeOver(value).toFixed(1);
+    }
+
     function playerStatusLabel(status) {
       const normalized = String(status || "waiting");
       if (normalized === "non-striker") return "Non-striker";
@@ -821,8 +1004,8 @@
 
     let match = {
       activeTeam: "teamA",
-      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [] },
-      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [] }
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [], bowlers: [], currentBowlerId: "" },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [], bowlers: [], currentBowlerId: "" }
     };
 
     let history = [];
@@ -853,6 +1036,21 @@
 
       socket.on("connect", () => {
         console.log("socket connected", socket.id, "transport:", socket.io.engine.transport.name);
+        setStatus("Connected.", "ok");
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("socket connect_error", err);
+        setStatus("Live connection failed. Retrying…", "err");
+      });
+
+      socket.on("disconnect", (reason) => {
+        console.warn("socket disconnected", reason);
+        setStatus("Live connection lost. Reconnecting…", "err");
+      });
+
+      socket.on("viewerCount", (count) => {
+        updateViewerCount(count);
       });
 
       socket.io.engine.on("upgrade", (transport) => {
@@ -894,12 +1092,19 @@
       const runs = Number(team?.runs ?? 0);
       const wickets = Number(team?.wickets ?? 0);
       const over = normalizeOver(team?.over);
+      const bowlers = normalizeBowlers(team?.bowlers);
+      const currentBowlerId = String(team?.currentBowlerId ?? "").trim();
+      const normalizedCurrentBowlerId = currentBowlerId && bowlers.some((bowler) => bowler.id === currentBowlerId)
+        ? currentBowlerId
+        : String(bowlers[0]?.id ?? "");
       return {
         name: name || fallbackName,
         runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
         wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
         over,
-        players: normalizePlayers(team?.players)
+        players: normalizePlayers(team?.players),
+        bowlers,
+        currentBowlerId: normalizedCurrentBowlerId
       };
     }
 
@@ -918,6 +1123,13 @@
       el.innerText = message || "";
     }
 
+    function updateViewerCount(count) {
+      const el = document.getElementById("viewerCount");
+      if (!el) return;
+      const safeCount = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
+      el.innerText = String(safeCount);
+    }
+
     function getActiveTeam() {
       return match.activeTeam === "teamB" ? match.teamB : match.teamA;
     }
@@ -934,38 +1146,57 @@
     }
 
     function render() {
-      const a = match.teamA;
-      const b = match.teamB;
+      try {
+        const a = match.teamA || { name: "Team A", runs: 0, wickets: 0, over: 0 };
+        const b = match.teamB || { name: "Team B", runs: 0, wickets: 0, over: 0 };
+        const activeTeam = getActiveTeam() || a;
 
-      document.getElementById("teamAName").innerText = a.name;
-      document.getElementById("teamBName").innerText = b.name;
-      document.getElementById("teamAScore").innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
-      document.getElementById("teamBScore").innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
+        const scoreEl = document.getElementById("score");
+        if (scoreEl) scoreEl.innerText = `${activeTeam.runs}/${activeTeam.wickets} (${formatOver(activeTeam.over)})`;
 
-      // keep inputs + labels in sync
-      const aInput = document.getElementById("teamANameInput");
-      const bInput = document.getElementById("teamBNameInput");
-      if (document.activeElement !== aInput) aInput.value = a.name;
-      if (document.activeElement !== bInput) bInput.value = b.name;
+        const teamANameEl = document.getElementById("teamAName");
+        const teamBNameEl = document.getElementById("teamBName");
+        const teamAScoreEl = document.getElementById("teamAScore");
+        const teamBScoreEl = document.getElementById("teamBScore");
+        if (teamANameEl) teamANameEl.innerText = a.name;
+        if (teamBNameEl) teamBNameEl.innerText = b.name;
+        if (teamAScoreEl) teamAScoreEl.innerText = `${a.runs}/${a.wickets} (${formatOver(a.over)})`;
+        if (teamBScoreEl) teamBScoreEl.innerText = `${b.runs}/${b.wickets} (${formatOver(b.over)})`;
 
-      document.getElementById("teamABtn").innerText = a.name;
-      document.getElementById("teamBBtn").innerText = b.name;
-      document.getElementById("winnerA").innerText = a.name;
-      document.getElementById("winnerB").innerText = b.name;
+        // keep inputs + labels in sync
+        const aInput = document.getElementById("teamANameInput");
+        const bInput = document.getElementById("teamBNameInput");
+        if (aInput && document.activeElement !== aInput) aInput.value = a.name;
+        if (bInput && document.activeElement !== bInput) bInput.value = b.name;
 
-      const aActive = match.activeTeam === "teamA";
-      document.getElementById("teamABox").className = aActive ? "teamCard active" : "teamCard";
-      document.getElementById("teamBBox").className = aActive ? "teamCard" : "teamCard active";
-      document.getElementById("teamAActive").style.display = aActive ? "inline-flex" : "none";
-      document.getElementById("teamBActive").style.display = aActive ? "none" : "inline-flex";
+        const teamABtn = document.getElementById("teamABtn");
+        const teamBBtn = document.getElementById("teamBBtn");
+        const winnerA = document.getElementById("winnerA");
+        const winnerB = document.getElementById("winnerB");
+        if (teamABtn) teamABtn.innerText = a.name;
+        if (teamBBtn) teamBBtn.innerText = b.name;
+        if (winnerA) winnerA.innerText = a.name;
+        if (winnerB) winnerB.innerText = b.name;
 
-      document.getElementById("teamABtn").className = aActive ? "on" : "";
-      document.getElementById("teamBBtn").className = aActive ? "" : "on";
+        const aActive = match.activeTeam === "teamA";
+        const teamABox = document.getElementById("teamABox");
+        const teamBBox = document.getElementById("teamBBox");
+        const teamAActive = document.getElementById("teamAActive");
+        const teamBActive = document.getElementById("teamBActive");
+        if (teamABox) teamABox.className = aActive ? "teamCard active" : "teamCard";
+        if (teamBBox) teamBBox.className = aActive ? "teamCard" : "teamCard active";
+        if (teamAActive) teamAActive.style.display = aActive ? "inline-flex" : "none";
+        if (teamBActive) teamBActive.style.display = aActive ? "none" : "inline-flex";
 
-      const t = getActiveTeam();
-      document.getElementById("score").innerText = `${t.runs}/${t.wickets} (${formatOver(t.over)})`;
-      syncInputsFromTeam();
-      renderPlayers();
+        if (teamABtn) teamABtn.className = aActive ? "on" : "";
+        if (teamBBtn) teamBBtn.className = aActive ? "" : "on";
+
+        syncInputsFromTeam();
+        renderPlayers();
+      } catch (err) {
+        console.error("render failed", err);
+        setStatus("UI render error. Check console.", "err");
+      }
     }
 
     let saveNamesTimer = null;
@@ -1011,14 +1242,32 @@
     function renderHistoryPlayers(players) {
       const list = Array.isArray(players) ? players : [];
       if (!list.length) {
-        return `<span class="pill">No players</span>`;
+        return "";
       }
 
       return list
         .map((player) => {
           const status = String(player?.status || "waiting");
-          const label = `${String(player?.name || "Player")} ${Number.isFinite(Number(player?.runs)) ? `(${Number(player.runs)})` : "(0)"}`;
+          const runs = Number.isFinite(Number(player?.runs)) ? Math.max(0, Math.floor(Number(player.runs))) : 0;
+          const overs = Number.isFinite(Number(player?.overs)) ? normalizeOver(player.overs) : 0;
+          const label = `${String(player?.name || "Player")} (${runs} runs, ${formatOver(overs)} ov)`;
           return `<span class="playerBadge ${escapeHtml(status)}">${escapeHtml(label)}</span>`;
+        })
+        .join("");
+    }
+
+    function renderHistoryBowlers(bowlers) {
+      const list = Array.isArray(bowlers) ? bowlers : [];
+      if (!list.length) {
+        return `<span class="pill">No bowlers</span>`;
+      }
+
+      return list
+        .map((bowler) => {
+          const wickets = Number.isFinite(Number(bowler?.wickets)) ? Math.max(0, Math.floor(Number(bowler.wickets))) : 0;
+          const overs = Number.isFinite(Number(bowler?.overs)) ? normalizeOver(bowler.overs) : 0;
+          const label = `${String(bowler?.name || "Bowler")} (${wickets} wkts, ${formatOver(overs)} ov)`;
+          return `<span class="playerBadge bowler">${escapeHtml(label)}</span>`;
         })
         .join("");
     }
@@ -1033,6 +1282,16 @@
 
     function getTeamPlayers(teamKey = match.activeTeam) {
       return getTeam(teamKey).players;
+    }
+
+    function getTeamBowlers(teamKey = match.activeTeam) {
+      return getTeam(teamKey).bowlers;
+    }
+
+    function getCurrentBowler(team = getActiveTeam()) {
+      const bowlers = Array.isArray(team?.bowlers) ? team.bowlers : [];
+      const currentBowlerId = String(team?.currentBowlerId || "");
+      return bowlers.find((bowler) => String(bowler.id) === currentBowlerId) || bowlers[0] || null;
     }
 
     function getActiveTeamPlayer(role) {
@@ -1051,6 +1310,20 @@
       return fallback;
     }
 
+    function advanceLegalDelivery(team, batsman = null) {
+      const striker = batsman || getActiveTeamPlayer("striker") || ensureStriker(team);
+      if (striker) {
+        striker.overs = addBallsToOver(striker.overs, 1);
+      }
+
+      const bowler = getCurrentBowler(team);
+      if (bowler) {
+        bowler.overs = addBallsToOver(bowler.overs, 1);
+      }
+
+      team.over = addBallsToOver(team.over, 1);
+    }
+
     function addPlayer(teamKey = match.activeTeam) {
       const input = document.getElementById(`playerNameInput-${teamKey}`) || document.getElementById("playerNameInput");
       const team = getTeam(teamKey);
@@ -1058,10 +1331,76 @@
       const hasStriker = team.players.some((player) => player.status === "striker");
       const hasNonStriker = team.players.some((player) => player.status === "non-striker");
       const status = !hasStriker ? "striker" : !hasNonStriker ? "non-striker" : "waiting";
-      const nextIndex = team.players.length + 1;
 
-      team.players.push(createPlayer(name || `Player ${nextIndex}`, status));
+      team.players.push(createPlayer(name, status));
       input.value = "";
+      pushMatch();
+      render();
+    }
+
+    function addBowler(teamKey = match.activeTeam) {
+      const input = document.getElementById(`bowlerNameInput-${teamKey}`) || document.getElementById("bowlerNameInput");
+      const team = getTeam(teamKey);
+      const name = String(input.value ?? "").trim();
+      const bowler = createBowler(name);
+
+      team.bowlers.push(bowler);
+      if (!team.currentBowlerId) {
+        team.currentBowlerId = bowler.id;
+      }
+      input.value = "";
+      pushMatch();
+      render();
+    }
+
+    function removePlayer(teamKey, playerId) {
+      const team = getTeam(teamKey);
+      const index = team.players.findIndex((entry) => String(entry.id) === String(playerId));
+      if (index < 0) return;
+
+      const player = team.players[index];
+      if (!window.confirm(`Delete player${player.name ? ` ${player.name}` : ""}?`)) return;
+
+      team.players.splice(index, 1);
+      pushMatch();
+      render();
+    }
+
+    function removeBowler(teamKey, bowlerId) {
+      const team = getTeam(teamKey);
+      const index = team.bowlers.findIndex((entry) => String(entry.id) === String(bowlerId));
+      if (index < 0) return;
+
+      const bowler = team.bowlers[index];
+      if (!window.confirm(`Delete bowler${bowler.name ? ` ${bowler.name}` : ""}?`)) return;
+
+      team.bowlers.splice(index, 1);
+      if (String(team.currentBowlerId) === String(bowlerId)) {
+        team.currentBowlerId = String(team.bowlers[0]?.id ?? "");
+      }
+      pushMatch();
+      render();
+    }
+
+    function resetBowler(teamKey, bowlerId) {
+      const team = getTeam(teamKey);
+      const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
+      if (!bowler) return;
+
+      if (!window.confirm(`Reset bowler ${bowler.name}?`)) return;
+
+      bowler.wickets = 0;
+      bowler.overs = 0;
+      pushMatch();
+      render();
+    }
+
+    function updateBowlerOvers(teamKey, bowlerId, value) {
+      const team = getTeam(teamKey);
+      const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
+      if (!bowler) return;
+
+      bowler.overs = normalizeOver(value);
       pushMatch();
       render();
     }
@@ -1072,7 +1411,7 @@
       if (!player) return;
 
       const name = String(value ?? "").trim();
-      player.name = name || player.name;
+      player.name = name;
       pushMatch();
       render();
     }
@@ -1084,6 +1423,48 @@
 
       const runs = Number.parseInt(String(value ?? "0"), 10);
       player.runs = Number.isFinite(runs) && runs >= 0 ? runs : 0;
+      pushMatch();
+      render();
+    }
+
+    function updatePlayerOvers(teamKey, playerId, value) {
+      const team = getTeam(teamKey);
+      const player = team.players.find((entry) => String(entry.id) === String(playerId));
+      if (!player) return;
+
+      player.overs = normalizeOver(value);
+      pushMatch();
+      render();
+    }
+
+    function updateBowlerName(teamKey, bowlerId, value) {
+      const team = getTeam(teamKey);
+      const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
+      if (!bowler) return;
+
+      const name = String(value ?? "").trim();
+      bowler.name = name;
+      pushMatch();
+      render();
+    }
+
+    function updateBowlerWickets(teamKey, bowlerId, value) {
+      const team = getTeam(teamKey);
+      const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
+      if (!bowler) return;
+
+      const wickets = Number.parseInt(String(value ?? "0"), 10);
+      bowler.wickets = Number.isFinite(wickets) && wickets >= 0 ? wickets : 0;
+      pushMatch();
+      render();
+    }
+
+    function setBowlerActive(teamKey, bowlerId) {
+      const team = getTeam(teamKey);
+      const bowler = team.bowlers.find((entry) => String(entry.id) === String(bowlerId));
+      if (!bowler) return;
+
+      team.currentBowlerId = bowler.id;
       pushMatch();
       render();
     }
@@ -1109,60 +1490,6 @@
 
       pushMatch();
       render();
-    }
-
-    function renderTeamRoster(teamKey) {
-      const team = getTeam(teamKey);
-      const isActiveTeam = match.activeTeam === teamKey;
-      const teamName = getTeamDisplayName(teamKey);
-      const players = Array.isArray(team.players) ? team.players : [];
-      const inputId = `playerNameInput-${teamKey}`;
-
-      const rows = players.length
-        ? players
-            .map((player) => {
-              const badgeLabel = playerStatusLabel(player.status);
-              return `
-                <div class="playerRow">
-                  <div class="playerField">
-                    <div class="label">Player</div>
-                    <input type="text" value="${escapeHtml(player.name)}" onchange="updatePlayerName('${teamKey}', '${escapeHtml(player.id)}', this.value)" />
-                    <span class="playerBadge ${escapeHtml(player.status)}">${escapeHtml(badgeLabel)}</span>
-                  </div>
-                  <div class="playerField">
-                    <div class="label">Runs</div>
-                    <input type="number" min="0" step="1" value="${player.runs}" onchange="updatePlayerRuns('${teamKey}', '${escapeHtml(player.id)}', this.value)" />
-                  </div>
-                  <div class="playerActions">
-                    <button class="roleBtn ${player.status === "striker" ? "active-striker" : ""}" onclick="setPlayerRole('${teamKey}', '${escapeHtml(player.id)}', 'striker')">Striker</button>
-                    <button class="roleBtn ${player.status === "non-striker" ? "active-non-striker" : ""}" onclick="setPlayerRole('${teamKey}', '${escapeHtml(player.id)}', 'non-striker')">Non-striker</button>
-                    <button class="roleBtn ${player.status === "out" ? "active-out" : ""}" onclick="setPlayerRole('${teamKey}', '${escapeHtml(player.id)}', 'out')">Out</button>
-                  </div>
-                </div>
-              `;
-            })
-            .join("")
-        : `<div class="pill" style="width: fit-content;">No players added yet.</div>`;
-
-      return `
-        <section class="teamRoster ${isActiveTeam ? "active" : ""}">
-          <div class="teamRosterHeader">
-            <div>
-              <div class="label">${escapeHtml(teamKey === "teamA" ? "Team A" : "Team B")}</div>
-              <div class="teamRosterName">${escapeHtml(teamName)}</div>
-              <div class="teamRosterMeta">${players.length} players</div>
-            </div>
-            <span class="pill">${isActiveTeam ? "Batting" : "Roster"}</span>
-          </div>
-          <div class="playersForm">
-            <input id="${inputId}" type="text" placeholder="Add player name" />
-            <button class="btnPrimary smallBtn" onclick="addPlayer('${teamKey}')">Add Player</button>
-          </div>
-          <div class="playerList">
-            ${rows}
-          </div>
-        </section>
-      `;
     }
 
     function renderPlayers() {
@@ -1198,6 +1525,8 @@
           const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
           const teamAPlayers = Array.isArray(m?.teamA_players) ? m.teamA_players : [];
           const teamBPlayers = Array.isArray(m?.teamB_players) ? m.teamB_players : [];
+          const teamABowlers = Array.isArray(m?.teamA_bowlers) ? m.teamA_bowlers : [];
+          const teamBBowlers = Array.isArray(m?.teamB_bowlers) ? m.teamB_bowlers : [];
           const recordId = String(m?.id ?? "");
           return `
             <div class="histItem">
@@ -1221,6 +1550,18 @@
                 <div>${escapeHtml(m?.teamB_name || "Team B")} players</div>
                 <div class="playerActions" style="justify-content:flex-start;">
                   ${renderHistoryPlayers(teamBPlayers)}
+                </div>
+              </div>
+              <div class="histLine" style="display:grid; gap:8px;">
+                <div>${escapeHtml(m?.teamA_name || "Team A")} bowlers</div>
+                <div class="playerActions" style="justify-content:flex-start;">
+                  ${renderHistoryBowlers(teamABowlers)}
+                </div>
+              </div>
+              <div class="histLine" style="display:grid; gap:8px;">
+                <div>${escapeHtml(m?.teamB_name || "Team B")} bowlers</div>
+                <div class="playerActions" style="justify-content:flex-start;">
+                  ${renderHistoryBowlers(teamBBowlers)}
                 </div>
               </div>
               <div class="histActions">
@@ -1333,7 +1674,7 @@
 
     function applyDelivery({ runs = 0, wickets = 0, countsBall = true, creditRunsToBatsman = false } = {}) {
       const t = getActiveTeam();
-      const striker = creditRunsToBatsman && runs > 0 ? ensureStriker(t) : null;
+      const striker = ensureStriker(t);
 
       if (creditRunsToBatsman && striker && runs > 0) {
         striker.runs += runs;
@@ -1341,13 +1682,11 @@
 
       t.runs += runs;
       t.wickets += wickets;
-      if (wickets > 0) {
-        const currentStriker = getActiveTeamPlayer("striker");
-        if (currentStriker) currentStriker.status = "out";
-      }
       if (countsBall) {
-        const nextBalls = overToBalls(t.over) + 1;
-        t.over = ballsToOverNumber(nextBalls);
+        advanceLegalDelivery(t, striker);
+      }
+      if (wickets > 0) {
+        if (striker) striker.status = "out";
       }
       pushMatch();
       render();
@@ -1357,13 +1696,12 @@
       const team = getActiveTeam();
       const dismissed = getActiveTeamPlayer("striker") || team.players.find((player) => player.status === "non-striker") || team.players.find((player) => player.status === "waiting");
 
+      advanceLegalDelivery(team, dismissed || undefined);
       if (dismissed) {
         dismissed.status = "out";
       }
 
       team.wickets += 1;
-      const nextBalls = overToBalls(team.over) + 1;
-      team.over = ballsToOverNumber(nextBalls);
       setStatus(`${String(type || "Wicket")} recorded.`, "ok");
       pushMatch();
       render();
@@ -1408,6 +1746,8 @@
 
     function resetActiveTeam() {
       const t = getActiveTeam();
+      if (!window.confirm(`Reset ${t.name} score?`)) return;
+
       t.runs = 0;
       t.wickets = 0;
       t.over = 0.0;
@@ -1489,6 +1829,9 @@
     document.getElementById("teamANameInput").addEventListener("input", onTeamNameInput);
     document.getElementById("teamBNameInput").addEventListener("input", onTeamNameInput);
 
+    // Render a sane default immediately so the page never sits on "Loading…"
+    render();
+    renderHistory();
     initSocket();
     loadHistory();
   </script>

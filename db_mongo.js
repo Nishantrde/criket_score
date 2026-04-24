@@ -21,7 +21,18 @@ const PlayerSchema = new mongoose.Schema(
     id: { type: String, required: true },
     name: { type: String, required: true },
     runs: { type: Number, required: true, default: 0 },
+    overs: { type: Number, required: true, default: 0 },
     status: { type: String, enum: ["striker", "non-striker", "waiting", "out"], required: true, default: "waiting" }
+  },
+  { _id: false }
+);
+
+const BowlerSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    wickets: { type: Number, required: true, default: 0 },
+    overs: { type: Number, required: true, default: 0 }
   },
   { _id: false }
 );
@@ -36,14 +47,16 @@ const MatchSchema = new mongoose.Schema(
       runs: { type: Number, required: true },
       wickets: { type: Number, required: true },
       overs: { type: Number, required: true },
-      players: { type: [PlayerSchema], default: [] }
+      players: { type: [PlayerSchema], default: [] },
+      bowlers: { type: [BowlerSchema], default: [] }
     },
     teamB: {
       name: { type: String, required: true },
       runs: { type: Number, required: true },
       wickets: { type: Number, required: true },
       overs: { type: Number, required: true },
-      players: { type: [PlayerSchema], default: [] }
+      players: { type: [PlayerSchema], default: [] },
+      bowlers: { type: [BowlerSchema], default: [] }
     }
   },
   { collection: "matches" }
@@ -143,11 +156,13 @@ async function listMatches({ limit = 5000 } = {}) {
     teamA_wickets: m.teamA.wickets,
     teamA_overs: m.teamA.overs,
     teamA_players: Array.isArray(m.teamA.players) ? m.teamA.players : [],
+    teamA_bowlers: Array.isArray(m.teamA.bowlers) ? m.teamA.bowlers : [],
     teamB_name: m.teamB.name,
     teamB_runs: m.teamB.runs,
     teamB_wickets: m.teamB.wickets,
     teamB_overs: m.teamB.overs,
-    teamB_players: Array.isArray(m.teamB.players) ? m.teamB.players : []
+    teamB_players: Array.isArray(m.teamB.players) ? m.teamB.players : [],
+    teamB_bowlers: Array.isArray(m.teamB.bowlers) ? m.teamB.bowlers : []
   }));
 }
 
@@ -162,13 +177,17 @@ async function insertMatch({ match, winner }) {
       name: match.teamA.name,
       runs: match.teamA.runs,
       wickets: match.teamA.wickets,
-      overs: match.teamA.over
+      overs: match.teamA.over,
+      players: Array.isArray(match.teamA.players) ? match.teamA.players : [],
+      bowlers: Array.isArray(match.teamA.bowlers) ? match.teamA.bowlers : []
     },
     teamB: {
       name: match.teamB.name,
       runs: match.teamB.runs,
       wickets: match.teamB.wickets,
-      overs: match.teamB.over
+      overs: match.teamB.over,
+      players: Array.isArray(match.teamB.players) ? match.teamB.players : [],
+      bowlers: Array.isArray(match.teamB.bowlers) ? match.teamB.bowlers : []
     }
   });
   return { id: String(doc._id), createdAt: createdAt.toISOString() };

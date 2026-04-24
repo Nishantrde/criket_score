@@ -35,6 +35,7 @@ const ADMIN_PASS = String(process.env.ADMIN_PASS || "air19818");
 
 const ADMIN_SOCKET_TOKEN_TTL_MS = 1000 * 60 * 10; // 10 minutes
 const adminSocketTokens = new Map(); // token -> expiresAtMs
+let liveViewerCount = 0;
 
 function parseBasicAuth(headerValue) {
   const h = String(headerValue || "");
@@ -111,8 +112,8 @@ app.use(express.static("public"));
 let match = {
   activeTeam: "teamA",
   winner: null,
-  teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [] },
-  teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [] }
+  teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [], bowlers: [], currentBowlerId: "" },
+  teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [], bowlers: [], currentBowlerId: "" }
 };
 
 function overToBalls(value) {
@@ -137,16 +138,18 @@ function normalizeOver(value) {
 const VALID_PLAYER_STATUSES = new Set(["striker", "non-striker", "waiting", "out"]);
 
 function normalizePlayer(player, index = 0) {
-  const rawName = String(player?.name ?? `Player ${index + 1}`).trim();
+  const rawName = String(player?.name ?? "").trim();
   const statusValue = String(player?.status || "").toLowerCase();
   const status = VALID_PLAYER_STATUSES.has(statusValue) ? statusValue : "waiting";
   const runs = Number(player?.runs ?? 0);
+  const overs = normalizeOver(player?.overs ?? 0);
 
   return {
     id: String(player?.id ?? `player-${index + 1}`),
-    name: rawName || `Player ${index + 1}`,
+    name: rawName,
     runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
-    status
+    status,
+    overs
   };
 }
 
@@ -172,18 +175,42 @@ function normalizePlayers(players) {
   });
 }
 
+function normalizeBowler(bowler, index = 0) {
+  const rawName = String(bowler?.name ?? "").trim();
+  const wickets = Number(bowler?.wickets ?? 0);
+  const overs = normalizeOver(bowler?.overs ?? 0);
+
+  return {
+    id: String(bowler?.id ?? `bowler-${index + 1}`),
+    name: rawName,
+    wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+    overs
+  };
+}
+
+function normalizeBowlers(bowlers) {
+  return Array.isArray(bowlers) ? bowlers.map((bowler, index) => normalizeBowler(bowler, index)) : [];
+}
+
 function normalizeTeam(team, fallbackName) {
   const name = String(team?.name ?? fallbackName);
   const runs = Number(team?.runs ?? 0);
   const wickets = Number(team?.wickets ?? 0);
   const over = normalizeOver(team?.over);
+  const bowlers = normalizeBowlers(team?.bowlers);
+  const currentBowlerId = String(team?.currentBowlerId ?? "").trim();
+  const normalizedCurrentBowlerId = currentBowlerId && bowlers.some((bowler) => bowler.id === currentBowlerId)
+    ? currentBowlerId
+    : String(bowlers[0]?.id ?? "");
 
   return {
     name: name || fallbackName,
     runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
     wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
     over,
-    players: normalizePlayers(team?.players)
+    players: normalizePlayers(team?.players),
+    bowlers,
+    currentBowlerId: normalizedCurrentBowlerId
   };
 }
 
@@ -222,6 +249,10 @@ async function emitMatchesUpdate(target) {
   } catch (err) {
     console.error("Failed to emit matchesUpdate", err);
   }
+}
+
+function emitViewerCount(target = io) {
+  target.emit("viewerCount", liveViewerCount);
 }
 
 app.get("/api/matches", async (req, res) => {
@@ -355,6 +386,7 @@ function isAdminSocket(socket) {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
   console.log("Transport:", socket.conn.transport?.name);
+  liveViewerCount += 1;
 
   socket.conn.on("upgrade", (transport) => {
     console.log("Transport upgraded:", transport?.name);
@@ -367,6 +399,7 @@ io.on("connection", (socket) => {
 
   // backward compatibility
   socket.emit("scoreUpdate", match[match.activeTeam]);
+  emitViewerCount();
 
   socket.on("joinMatch", () => {
     console.log("User joined match");
@@ -496,7 +529,18 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
+    liveViewerCount = Math.max(0, liveViewerCount - 1);
+    emitViewerCount();
   });
+});
+
+server.on("error", (err) => {
+  if (err && err.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Another server instance is already running.`);
+    process.exit(0);
+  }
+  console.error("Server failed to start", err);
+  process.exit(1);
 });
 
 server.listen(PORT, () => {

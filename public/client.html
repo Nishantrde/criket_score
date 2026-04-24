@@ -29,6 +29,20 @@
       padding: 24px 16px 40px;
     }
 
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .headerAside {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -246,7 +260,7 @@
 
     .playerRow {
       display: grid;
-      grid-template-columns: minmax(0, 1.35fr) 92px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.35fr) 92px 92px minmax(0, 1fr);
       gap: 10px;
       align-items: center;
       border: 1px solid var(--border);
@@ -300,6 +314,18 @@
       color: #555;
     }
 
+    .playerBadge.bowler {
+      background: #f3efe4;
+      color: #6b4d08;
+    }
+
+    .playerBadge.bowler.active-bowler {
+      background: #f3efe4;
+      border-color: rgba(107, 77, 8, 0.25);
+      color: #4d3705;
+      box-shadow: 0 0 0 2px rgba(107, 77, 8, 0.08);
+    }
+
     @media (max-width: 640px) {
       .playerRow {
         grid-template-columns: 1fr;
@@ -323,9 +349,16 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
-    <h1>Live Cricket Score</h1>
-    <p class="sub">Audience view (auto-updates)</p>
+    <header>
+      <div>
+        <div class="badge"><span class="dot"></span> Mojo Pravah • Conducted by Mojo Hostel</div>
+        <h1>Live Cricket Score</h1>
+        <p class="sub">Audience view (auto-updates)</p>
+      </div>
+      <div class="headerAside">
+        <div class="badge viewerBadge"><span class="dot"></span> Live viewers: <b id="viewerCount">0</b></div>
+      </div>
+    </header>
 
     <div class="grid">
       <section class="teamCard" id="teamABox">
@@ -397,6 +430,15 @@
       console.log("transport upgraded to", transport.name);
     });
 
+    function updateViewerCount(count) {
+      const el = document.getElementById("viewerCount");
+      if (!el) return;
+      const safeCount = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
+      el.innerText = String(safeCount);
+    }
+
+    socket.on("viewerCount", updateViewerCount);
+
     function overToBalls(value) {
       const num = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
       const safe = Number.isFinite(num) && num >= 0 ? num : 0;
@@ -423,16 +465,18 @@
     const VALID_PLAYER_STATUSES = new Set(["striker", "non-striker", "waiting", "out"]);
 
     function normalizePlayer(player, index = 0) {
-      const rawName = String(player?.name ?? `Player ${index + 1}`).trim();
+      const rawName = String(player?.name ?? "").trim();
       const statusValue = String(player?.status || "").toLowerCase();
       const status = VALID_PLAYER_STATUSES.has(statusValue) ? statusValue : "waiting";
       const runs = Number(player?.runs ?? 0);
+      const overs = normalizeOver(player?.overs ?? 0);
 
       return {
         id: String(player?.id ?? `player-${index + 1}`),
-        name: rawName || `Player ${index + 1}`,
+        name: rawName,
         runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
-        status
+        status,
+        overs
       };
     }
 
@@ -458,6 +502,23 @@
       });
     }
 
+    function normalizeBowler(bowler, index = 0) {
+      const rawName = String(bowler?.name ?? "").trim();
+      const wickets = Number(bowler?.wickets ?? 0);
+      const overs = normalizeOver(bowler?.overs ?? 0);
+
+      return {
+        id: String(bowler?.id ?? `bowler-${index + 1}`),
+        name: rawName,
+        wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
+        overs
+      };
+    }
+
+    function normalizeBowlers(bowlers) {
+      return Array.isArray(bowlers) ? bowlers.map((bowler, index) => normalizeBowler(bowler, index)) : [];
+    }
+
     function playerStatusLabel(status) {
       const normalized = String(status || "waiting");
       if (normalized === "non-striker") return "Non-striker";
@@ -467,14 +528,34 @@
     function renderHistoryPlayers(players) {
       const list = Array.isArray(players) ? players : [];
       if (!list.length) {
-        return `<span class="pill">No players</span>`;
+        return "";
       }
 
       return list
         .map((player) => {
           const status = String(player?.status || "waiting");
-          const label = `${String(player?.name || "Player")} ${Number.isFinite(Number(player?.runs)) ? `(${Number(player.runs)})` : "(0)"}`;
+          const runs = Number.isFinite(Number(player?.runs)) ? Math.max(0, Math.floor(Number(player.runs))) : 0;
+          const overs = Number.isFinite(Number(player?.overs)) ? normalizeOver(player.overs) : 0;
+          const name = String(player?.name ?? "").trim();
+          const label = name ? `${name} (${runs} runs, ${formatOver(overs)} ov)` : `(${runs} runs, ${formatOver(overs)} ov)`;
           return `<span class="playerBadge ${escapeHtml(status)}">${escapeHtml(label)}</span>`;
+        })
+        .join("");
+    }
+
+    function renderHistoryBowlers(bowlers) {
+      const list = Array.isArray(bowlers) ? bowlers : [];
+      if (!list.length) {
+        return `<span class="pill">No bowlers</span>`;
+      }
+
+      return list
+        .map((bowler) => {
+          const wickets = Number.isFinite(Number(bowler?.wickets)) ? Math.max(0, Math.floor(Number(bowler.wickets))) : 0;
+          const overs = Number.isFinite(Number(bowler?.overs)) ? normalizeOver(bowler.overs) : 0;
+          const name = String(bowler?.name ?? "").trim();
+          const label = name ? `${name} (${wickets} wkts, ${formatOver(overs)} ov)` : `(${wickets} wkts, ${formatOver(overs)} ov)`;
+          return `<span class="playerBadge bowler">${escapeHtml(label)}</span>`;
         })
         .join("");
     }
@@ -503,6 +584,8 @@
           const winnerName = m?.winner === "teamB" ? m?.teamB_name : m?.teamA_name;
           const teamAPlayers = Array.isArray(m?.teamA_players) ? m.teamA_players : [];
           const teamBPlayers = Array.isArray(m?.teamB_players) ? m.teamB_players : [];
+          const teamABowlers = Array.isArray(m?.teamA_bowlers) ? m.teamA_bowlers : [];
+          const teamBBowlers = Array.isArray(m?.teamB_bowlers) ? m.teamB_bowlers : [];
           return `
             <div class="histItem">
               <div class="histTop">
@@ -525,6 +608,18 @@
                 <div>${escapeHtml(m?.teamB_name || "Team B")} players</div>
                 <div class="playerActions" style="justify-content:flex-start;">
                   ${renderHistoryPlayers(teamBPlayers)}
+                </div>
+              </div>
+              <div class="histLine" style="display:grid; gap:8px;">
+                <div>${escapeHtml(m?.teamA_name || "Team A")} bowlers</div>
+                <div class="playerActions" style="justify-content:flex-start;">
+                  ${renderHistoryBowlers(teamABowlers)}
+                </div>
+              </div>
+              <div class="histLine" style="display:grid; gap:8px;">
+                <div>${escapeHtml(m?.teamB_name || "Team B")} bowlers</div>
+                <div class="playerActions" style="justify-content:flex-start;">
+                  ${renderHistoryBowlers(teamBBowlers)}
                 </div>
               </div>
             </div>
@@ -550,8 +645,8 @@
 
     let match = {
       activeTeam: "teamA",
-      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [] },
-      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [] }
+      teamA: { name: "Team A", runs: 0, wickets: 0, over: 0.0, players: [], bowlers: [], currentBowlerId: "" },
+      teamB: { name: "Team B", runs: 0, wickets: 0, over: 0.0, players: [], bowlers: [], currentBowlerId: "" }
     };
 
     function normalizeTeam(team, fallbackName) {
@@ -559,12 +654,19 @@
       const runs = Number(team?.runs ?? 0);
       const wickets = Number(team?.wickets ?? 0);
       const over = normalizeOver(team?.over);
+      const bowlers = normalizeBowlers(team?.bowlers);
+      const currentBowlerId = String(team?.currentBowlerId ?? "").trim();
+      const normalizedCurrentBowlerId = currentBowlerId && bowlers.some((bowler) => bowler.id === currentBowlerId)
+        ? currentBowlerId
+        : String(bowlers[0]?.id ?? "");
       return {
         name: name || fallbackName,
         runs: Number.isFinite(runs) && runs >= 0 ? Math.floor(runs) : 0,
         wickets: Number.isFinite(wickets) && wickets >= 0 ? Math.floor(wickets) : 0,
         over,
-        players: normalizePlayers(team?.players)
+        players: normalizePlayers(team?.players),
+        bowlers,
+        currentBowlerId: normalizedCurrentBowlerId
       };
     }
 
@@ -602,11 +704,17 @@
       const team = getTeam(teamKey);
       const isActiveTeam = match.activeTeam === teamKey;
       const players = Array.isArray(team.players) ? team.players : [];
+      const bowlers = Array.isArray(team.bowlers) ? team.bowlers : [];
+      const currentBowlerId = String(team.currentBowlerId || "");
+      const activeBowlerId = currentBowlerId && bowlers.some((bowler) => String(bowler.id) === currentBowlerId)
+        ? currentBowlerId
+        : String(bowlers[0]?.id || "");
 
-      const rows = players.length
+      const playerRows = players.length
         ? players
             .map((player) => {
               const badgeLabel = playerStatusLabel(player.status);
+              const overs = Number.isFinite(Number(player.overs)) ? normalizeOver(player.overs) : 0;
               return `
                 <div class="playerRow">
                   <div class="playerField">
@@ -617,6 +725,10 @@
                     <div class="label">Runs</div>
                     <div style="font-size: 16px; font-weight: 850;">${player.runs}</div>
                   </div>
+                  <div class="playerField">
+                    <div class="label">Overs</div>
+                    <div style="font-size: 16px; font-weight: 850;">${formatOver(overs)}</div>
+                  </div>
                   <div class="playerActions">
                     <span class="playerBadge ${escapeHtml(player.status)}">${escapeHtml(badgeLabel)}</span>
                   </div>
@@ -626,18 +738,67 @@
             .join("")
         : `<div class="pill" style="width: fit-content;">No players added yet.</div>`;
 
+      const bowlerRows = bowlers.length
+        ? bowlers
+            .map((bowler) => {
+              const wickets = Number.isFinite(Number(bowler.wickets)) ? Math.max(0, Math.floor(Number(bowler.wickets))) : 0;
+              const overs = Number.isFinite(Number(bowler.overs)) ? normalizeOver(bowler.overs) : 0;
+              return `
+                <div class="playerRow">
+                  <div class="playerField">
+                    <div class="label">Bowler</div>
+                    <div style="font-weight: 800; font-size: 15px;">${escapeHtml(bowler.name)}</div>
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Wickets</div>
+                    <div style="font-size: 16px; font-weight: 850;">${wickets}</div>
+                  </div>
+                  <div class="playerField">
+                    <div class="label">Overs</div>
+                    <div style="font-size: 16px; font-weight: 850;">${formatOver(overs)}</div>
+                  </div>
+                  <div class="playerActions">
+                    <span class="playerBadge bowler ${activeBowlerId === bowler.id ? "active-bowler" : ""}">Bowler</span>
+                  </div>
+                </div>
+              `;
+            })
+            .join("")
+        : `<div class="pill" style="width: fit-content;">No bowlers added yet.</div>`;
+
       return `
         <section class="teamRoster ${isActiveTeam ? "active" : ""}">
           <div class="teamRosterHeader">
             <div>
               <div class="label">${escapeHtml(teamKey === "teamA" ? "Team A" : "Team B")}</div>
               <div class="teamRosterName">${escapeHtml(team.name)}</div>
-              <div class="teamRosterMeta">${players.length} players</div>
+              <div class="teamRosterMeta">${players.length} players • ${bowlers.length} bowlers</div>
             </div>
             <span class="pill">${isActiveTeam ? "Batting" : "Roster"}</span>
           </div>
-          <div class="playerList">
-            ${rows}
+          <div class="teamRosterBlock" style="display:grid; gap:10px; margin-top: 12px;">
+            <div class="teamRosterHeader" style="margin-top: 2px;">
+              <div>
+                <div class="label">Players</div>
+                <div class="teamRosterMeta">${players.length} players</div>
+              </div>
+              <span class="pill">${isActiveTeam ? "Batting" : "Roster"}</span>
+            </div>
+            <div class="playerList">
+              ${playerRows}
+            </div>
+          </div>
+          <div class="teamRosterBlock" style="display:grid; gap:10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <div class="teamRosterHeader" style="margin-top: 2px;">
+              <div>
+                <div class="label">Bowlers</div>
+                <div class="teamRosterMeta">${bowlers.length} bowlers</div>
+              </div>
+              <span class="pill">Roster</span>
+            </div>
+            <div class="playerList">
+              ${bowlerRows}
+            </div>
           </div>
         </section>
       `;

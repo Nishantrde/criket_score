@@ -138,6 +138,8 @@ async function listMatches({ limit = 5000 } = {}) {
     const match = raw.match || {};
     const teamAPlayers = Array.isArray(match.teamA?.players) ? match.teamA.players : [];
     const teamBPlayers = Array.isArray(match.teamB?.players) ? match.teamB.players : [];
+    const teamABowlers = Array.isArray(match.teamA?.bowlers) ? match.teamA.bowlers : [];
+    const teamBBowlers = Array.isArray(match.teamB?.bowlers) ? match.teamB.bowlers : [];
 
     return {
       id: row.id,
@@ -149,11 +151,13 @@ async function listMatches({ limit = 5000 } = {}) {
       teamA_wickets: row.teamA_wickets,
       teamA_overs: row.teamA_overs,
       teamA_players: teamAPlayers,
+      teamA_bowlers: teamABowlers,
       teamB_name: row.teamB_name,
       teamB_runs: row.teamB_runs,
       teamB_wickets: row.teamB_wickets,
       teamB_overs: row.teamB_overs,
-      teamB_players: teamBPlayers
+      teamB_players: teamBPlayers,
+      teamB_bowlers: teamBBowlers
     };
   });
 }

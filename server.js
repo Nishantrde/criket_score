@@ -544,9 +544,9 @@ server.on("error", (err) => {
   console.error("Server failed to start", err);
   process.exit(1);
 });
-
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+const IP_ADDRESS = '172.20.247.88';
+server.listen(PORT, IP_ADDRESS, () => {
+  console.log(`Server running at http://${IP_ADDRESS}:${PORT}`);
 });
 
 (async () => {
